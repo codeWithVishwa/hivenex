@@ -1,0 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+
+  --color-ink: #0f0620;
+  --color-ink-soft: #160a2e;
+  --color-line: rgba(255, 255, 255, 0.09);
+  --color-haze: #9089a8;
+
+  /* Brand gradient stops — sampled from the Hivenex logo */
+  --color-brand-pink: #ff5e7a;
+  --color-brand-magenta: #d63f9d;
+  --color-brand-violet: #7c3aed;
+
+  --color-accent: #d63f9d;
+  --color-accent-soft: #ff7aa0;
+  --color-accent-deep: #7c3aed;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* keep anchored sections clear of the fixed navbar */
+  scroll-padding-top: 6rem;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(110% 70% at 88% 0%, rgba(214, 63, 157, 0.28), transparent 55%),
+    radial-gradient(100% 70% at 10% 100%, rgba(124, 58, 237, 0.20), transparent 60%),
+    var(--color-ink);
+  color: #ececf2;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+/* Brand gradient — coral-pink → magenta → violet (from the logo) */
+.text-gradient {
+  background: linear-gradient(100deg, #ff5e7a 0%, #d63f9d 48%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Fluid typography (fits smoothly across every screen size) ---- */
+.fluid-hero {
+  font-size: clamp(2.6rem, 10vw, 8.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+}
+.fluid-mega {
+  font-size: clamp(2.4rem, 10.5vw, 7.5rem);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+}
+.fluid-h2 {
+  font-size: clamp(1.85rem, 5vw, 3.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+/* Lenis smooth scroll */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Reusable violet gradient button */
+.btn-violet {
+  background: linear-gradient(100deg, #ff5e7a 0%, #d63f9d 50%, #7c3aed 100%);
+  color: #fff;
+  box-shadow:
+    0 10px 30px -8px rgba(214, 63, 157, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Glowing horizon arc for the hero */
+.horizon {
+  position: absolute;
+  left: 50%;
+  top: -30%;
+  width: 160%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, transparent 58%, rgba(214, 63, 157, 0.14) 60%, transparent 63%);
+  box-shadow:
+    0 0 120px 20px rgba(214, 63, 157, 0.32),
+    inset 0 2px 60px rgba(255, 122, 160, 0.4);
+}
+.horizon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 70%;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #ff7aa0, #fff, #b58bff, transparent);
+  filter: blur(1px);
+  box-shadow: 0 0 40px 8px rgba(255, 122, 160, 0.8);
+}
+
+/* Premium thin scrollbar */
+::-webkit-scrollbar {
+  width: 9px;
+}
+::-webkit-scrollbar-track {
+  background: #050505;
+}
+::-webkit-scrollbar-thumb {
+  background: #1f1f1f;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2e2e2e;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
