@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-const API = "/api";
+const API = import.meta.env.VITE_API_URL || "/api";
 const TOKEN_KEY = "hivenex_token";
 
 let state = {
