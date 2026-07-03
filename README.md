@@ -57,6 +57,55 @@ Visit `http://localhost:5173/admin` and log in with `ADMIN_PASSWORD`
 - Create, edit, delete **blog posts** (one featured at a time)
 - Create, edit, delete **services** (the register form dropdown updates live)
 
+## Production
+
+In production the Express server also serves the built React app, so the whole
+thing runs as **one service** (API under `/api`, SPA everywhere else). This is
+enabled when `NODE_ENV=production`.
+
+### Build & run locally
+
+```bash
+npm run setup      # installs root + server deps
+npm run build      # builds the frontend into ./dist
+NODE_ENV=production npm start   # server serves ./dist + /api on :5000
+```
+
+Then open `http://localhost:5000`.
+
+### Docker (single image)
+
+```bash
+docker build -t hivenex .
+docker run -p 5000:5000 --env-file server/.env hivenex
+```
+
+### Deploy to a PaaS (Render / Railway / Fly / VPS)
+
+- **Build command:** `npm run setup && npm run build`
+- **Start command:** `npm start`
+- **Env vars:** set `NODE_ENV=production` plus every key from `server/.env`
+  (`MONGODB_URI`, `JWT_SECRET`, `ADMIN_PASSWORD`, `CLIENT_ORIGIN`, `PORT`).
+
+Set `CLIENT_ORIGIN` to your public URL (comma-separate multiple origins). For a
+single-service deploy the frontend calls the same origin, so you don't need
+`VITE_API_URL`. For a **split** deploy (static frontend + separate API), set
+`VITE_API_URL=https://your-api-host/api` at build time (see `.env.example`).
+
+### Hardening included
+
+- `helmet` security headers + `compression`
+- Rate limiting on `/api/auth` (20/15min) and `/api/registrations` (30/15min)
+- 100 kb JSON body limit, `trust proxy` for correct client IPs
+- CORS locked to `CLIENT_ORIGIN`
+
+### Before going live
+
+- **Rotate secrets:** use a long random `JWT_SECRET` and a strong `ADMIN_PASSWORD`
+  (the defaults/committed values are for local dev only).
+- Restrict MongoDB Atlas network access to your host's IPs.
+- `.env` files are gitignored — never commit real credentials.
+
 ## API
 
 | Method | Route                     | Auth  | Description              |

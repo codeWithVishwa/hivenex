@@ -6,6 +6,9 @@ const TOKEN_KEY = "hivenex_token";
 let state = {
   services: [],
   posts: [],
+  projects: [],
+  faqs: [],
+  stats: [],
   registrations: [],
   auth: { loggedIn: !!localStorage.getItem(TOKEN_KEY) },
   loading: true,
@@ -59,13 +62,19 @@ async function api(path, { method = "GET", body, auth = false } = {}) {
 /* ---------- Initial load ---------- */
 export async function loadPublic() {
   try {
-    const [services, posts] = await Promise.all([
+    const [services, posts, projects, faqs, stats] = await Promise.all([
       api("/services"),
       api("/posts"),
+      api("/projects"),
+      api("/faqs"),
+      api("/stats"),
     ]);
     set({
       services: services.map(norm),
       posts: posts.map(norm),
+      projects: projects.map(norm),
+      faqs: faqs.map(norm),
+      stats: stats.map(norm),
       loading: false,
       error: null,
     });
@@ -153,6 +162,7 @@ export async function savePost(data) {
     title: data.title,
     category: data.category,
     excerpt: data.excerpt,
+    content: data.content,
     date: data.date,
     read: data.read,
     featured: !!data.featured,
@@ -171,4 +181,68 @@ export async function savePost(data) {
 export async function deletePost(id) {
   await api(`/posts/${id}`, { method: "DELETE", auth: true });
   set({ posts: state.posts.filter((p) => p.id !== id) });
+}
+
+/* ---------- Generic collection CRUD (projects, faqs, stats) ---------- */
+function makeCrud(key, endpoint) {
+  const save = async (data) => {
+    if (data.id) {
+      const updated = norm(
+        await api(`/${endpoint}/${data.id}`, {
+          method: "PUT",
+          body: data,
+          auth: true,
+        })
+      );
+      set({ [key]: state[key].map((x) => (x.id === data.id ? updated : x)) });
+    } else {
+      const created = norm(
+        await api(`/${endpoint}`, { method: "POST", body: data, auth: true })
+      );
+      set({ [key]: [...state[key], created] });
+    }
+  };
+  const remove = async (id) => {
+    await api(`/${endpoint}/${id}`, { method: "DELETE", auth: true });
+    set({ [key]: state[key].filter((x) => x.id !== id) });
+  };
+  return { save, remove };
+}
+
+const projectsCrud = makeCrud("projects", "projects");
+export const saveProject = projectsCrud.save;
+export const deleteProject = projectsCrud.remove;
+
+const faqsCrud = makeCrud("faqs", "faqs");
+export const saveFaq = faqsCrud.save;
+export const deleteFaq = faqsCrud.remove;
+
+const statsCrud = makeCrud("stats", "stats");
+export const saveStat = statsCrud.save;
+export const deleteStat = statsCrud.remove;
+
+// Fetch a single post (used by the blog detail page on direct navigation)
+export async function fetchPost(id) {
+  const inStore = state.posts.find((p) => p.id === id);
+  if (inStore && inStore.content !== undefined) return inStore;
+  return norm(await api(`/posts/${id}`));
+}
+
+/* ---------- Analytics ---------- */
+export function trackPageview(path) {
+  // fire-and-forget; never blocks or throws
+  try {
+    fetch(API + "/analytics/pageview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ path, ref: document.referrer || "" }),
+    }).catch(() => {});
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function loadAnalytics() {
+  return api("/analytics", { auth: true });
 }

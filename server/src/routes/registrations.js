@@ -6,13 +6,23 @@ const router = Router();
 
 // Public: submit a service registration from the site
 router.post("/", async (req, res) => {
-  const { name, email, company, service } = req.body;
+  const { name, email, company, phone, service, budget, timeline, message } =
+    req.body;
   if (!name?.trim() || !email?.trim() || !service) {
     return res
       .status(400)
       .json({ error: "Name, email and service are required" });
   }
-  const reg = await Registration.create({ name, email, company, service });
+  const reg = await Registration.create({
+    name,
+    email,
+    company,
+    phone,
+    service,
+    budget,
+    timeline,
+    message,
+  });
   res.status(201).json(reg);
 });
 

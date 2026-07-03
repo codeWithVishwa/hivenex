@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -6,6 +6,10 @@ import {
   HiOutlineUsers,
   HiOutlineNewspaper,
   HiOutlineWrenchScrewdriver,
+  HiOutlineChartBarSquare,
+  HiOutlineBriefcase,
+  HiOutlineQuestionMarkCircle,
+  HiOutlineHashtag,
   HiPlus,
   HiOutlinePencilSquare,
   HiOutlineTrash,
@@ -24,6 +28,13 @@ import {
   deleteService,
   savePost,
   deletePost,
+  saveProject,
+  deleteProject,
+  saveFaq,
+  deleteFaq,
+  saveStat,
+  deleteStat,
+  loadAnalytics,
 } from "../lib/store";
 
 /* ------------------------------------------------------------------ */
@@ -216,11 +227,32 @@ function Overview({ db, setTab }) {
 /* ------------------------------------------------------------------ */
 function Registrations({ db }) {
   const rows = db.registrations;
+  const [expanded, setExpanded] = useState(null);
 
   const exportCsv = () => {
-    const header = ["Name", "Email", "Company", "Service", "Date"];
+    const header = [
+      "Name",
+      "Email",
+      "Phone",
+      "Company",
+      "Service",
+      "Budget",
+      "Timeline",
+      "Message",
+      "Date",
+    ];
     const lines = rows.map((r) =>
-      [r.name, r.email, r.company, r.service, new Date(r.createdAt).toLocaleString()]
+      [
+        r.name,
+        r.email,
+        r.phone || "",
+        r.company || "",
+        r.service,
+        r.budget || "",
+        r.timeline || "",
+        r.message || "",
+        new Date(r.createdAt).toLocaleString(),
+      ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(",")
     );
@@ -263,33 +295,83 @@ function Registrations({ db }) {
             <span className="col-span-1">Date</span>
             <span className="col-span-1" />
           </div>
-          {rows.map((r) => (
-            <div
-              key={r.id}
-              className="grid grid-cols-1 gap-1 border-b border-line px-5 py-4 text-sm last:border-b-0 hover:bg-white/[0.015] md:grid-cols-12 md:items-center md:gap-4"
-            >
-              <span className="col-span-3 font-medium text-white">{r.name}</span>
-              <span className="col-span-3 text-haze">{r.email}</span>
-              <span className="col-span-2 text-haze">{r.company || "—"}</span>
-              <span className="col-span-2">
-                <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs text-accent">
-                  {r.service}
-                </span>
-              </span>
-              <span className="col-span-1 text-xs text-haze">
-                {new Date(r.createdAt).toLocaleDateString()}
-              </span>
-              <span className="col-span-1 md:text-right">
-                <button
-                  onClick={() => deleteRegistration(r.id)}
-                  className="text-haze transition-colors hover:text-red-400"
-                  title="Delete"
+          {rows.map((r) => {
+            const isOpen = expanded === r.id;
+            const hasDetail = r.phone || r.budget || r.timeline || r.message;
+            return (
+              <div key={r.id} className="border-b border-line last:border-b-0">
+                <div
+                  onClick={() => hasDetail && setExpanded(isOpen ? null : r.id)}
+                  className={`grid grid-cols-1 gap-1 px-5 py-4 text-sm hover:bg-white/[0.015] md:grid-cols-12 md:items-center md:gap-4 ${
+                    hasDetail ? "cursor-pointer" : ""
+                  }`}
                 >
-                  <HiOutlineTrash />
-                </button>
-              </span>
-            </div>
-          ))}
+                  <span className="col-span-3 flex items-center gap-2 font-medium text-white">
+                    {hasDetail && (
+                      <span className={`text-haze transition-transform ${isOpen ? "rotate-90" : ""}`}>
+                        ›
+                      </span>
+                    )}
+                    {r.name}
+                  </span>
+                  <span className="col-span-3 text-haze">{r.email}</span>
+                  <span className="col-span-2 text-haze">{r.company || "—"}</span>
+                  <span className="col-span-2">
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs text-accent">
+                      {r.service}
+                    </span>
+                  </span>
+                  <span className="col-span-1 text-xs text-haze">
+                    {new Date(r.createdAt).toLocaleDateString()}
+                  </span>
+                  <span className="col-span-1 md:text-right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteRegistration(r.id);
+                      }}
+                      className="text-haze transition-colors hover:text-red-400"
+                      title="Delete"
+                    >
+                      <HiOutlineTrash />
+                    </button>
+                  </span>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {isOpen && hasDetail && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden bg-black/20"
+                    >
+                      <div className="grid grid-cols-1 gap-4 px-5 py-4 text-sm sm:grid-cols-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.15em] text-haze">Phone</p>
+                          <p className="mt-1 text-white/85">{r.phone || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.15em] text-haze">Budget</p>
+                          <p className="mt-1 text-white/85">{r.budget || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.15em] text-haze">Timeline</p>
+                          <p className="mt-1 text-white/85">{r.timeline || "—"}</p>
+                        </div>
+                        <div className="sm:col-span-3">
+                          <p className="text-xs uppercase tracking-[0.15em] text-haze">Message</p>
+                          <p className="mt-1 whitespace-pre-wrap text-white/85">
+                            {r.message || "—"}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -411,6 +493,7 @@ function PostForm({ initial, onClose }) {
     title: initial?.title || "",
     category: initial?.category || "",
     excerpt: initial?.excerpt || "",
+    content: initial?.content || "",
     date: initial?.date || new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
     read: initial?.read || "5 min read",
     featured: initial?.featured || false,
@@ -450,7 +533,10 @@ function PostForm({ initial, onClose }) {
         <input className={inputCls} value={f.date} onChange={set("date")} placeholder="Jun 12, 2026" />
       </Field>
       <Field label="Excerpt">
-        <textarea className={`${inputCls} min-h-24 resize-none`} value={f.excerpt} onChange={set("excerpt")} placeholder="Short summary…" />
+        <textarea className={`${inputCls} min-h-20 resize-none`} value={f.excerpt} onChange={set("excerpt")} placeholder="Short summary shown on cards…" />
+      </Field>
+      <Field label="Content (full article — blank lines separate paragraphs)">
+        <textarea className={`${inputCls} min-h-40 resize-y`} value={f.content} onChange={set("content")} placeholder="Write the full post here…" />
       </Field>
       <label className="flex cursor-pointer items-center gap-3 text-sm">
         <input
@@ -534,13 +620,421 @@ function Posts({ db }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Analytics                                                           */
+/* ------------------------------------------------------------------ */
+function BarChart({ series, accent = "#d63f9d", label }) {
+  const max = Math.max(1, ...series.map((d) => d.count));
+  return (
+    <div className="rounded-2xl border border-line bg-ink-soft p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <h3 className="font-display text-lg font-medium">{label}</h3>
+        <span className="text-sm text-haze">
+          {series.reduce((a, b) => a + b.count, 0)} total · last {series.length}d
+        </span>
+      </div>
+      <div className="flex h-40 items-end gap-1.5">
+        {series.map((d) => (
+          <div key={d.date} className="group relative flex flex-1 flex-col items-center justify-end">
+            <div className="pointer-events-none absolute -top-7 hidden rounded-md border border-line bg-black/80 px-2 py-1 text-[11px] group-hover:block">
+              {d.count}
+            </div>
+            <motion.div
+              initial={{ height: 0 }}
+              animate={{ height: `${(d.count / max) * 100}%` }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full min-h-[3px] rounded-t"
+              style={{ background: accent, opacity: d.count ? 1 : 0.25 }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex justify-between text-[10px] text-haze">
+        <span>{series[0]?.date.slice(5)}</span>
+        <span>{series[series.length - 1]?.date.slice(5)}</span>
+      </div>
+    </div>
+  );
+}
+
+function RankBars({ title, rows, accent = "#8b5cf6" }) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <div className="rounded-2xl border border-line bg-ink-soft p-6">
+      <h3 className="font-display text-lg font-medium">{title}</h3>
+      <div className="mt-5 space-y-4">
+        {rows.length === 0 && <p className="text-sm text-haze">No data yet.</p>}
+        {rows.map((r) => (
+          <div key={r.name}>
+            <div className="mb-1.5 flex justify-between text-sm">
+              <span className="truncate text-white/85">{r.name}</span>
+              <span className="text-haze">{r.count}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-white/5">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(r.count / max) * 100}%` }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full rounded-full"
+                style={{ background: accent }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Analytics() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    loadAnalytics()
+      .then((d) => alive && setData(d))
+      .catch((e) => alive && setError(e.message));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (error)
+    return <p className="text-sm text-red-400">Couldn't load analytics: {error}</p>;
+  if (!data)
+    return <p className="text-sm text-haze">Loading analytics…</p>;
+
+  const cards = [
+    { label: "Page views", value: data.totals.views },
+    { label: "Registrations", value: data.totals.registrations },
+    { label: "Blog posts", value: data.totals.posts },
+    { label: "Services", value: data.totals.services },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {cards.map((c) => (
+          <div key={c.label} className="rounded-2xl border border-line bg-ink-soft p-6">
+            <div className="font-display text-4xl font-semibold">{c.value}</div>
+            <p className="mt-2 text-sm text-haze">{c.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <BarChart series={data.viewsSeries} accent="#8b5cf6" label="Page views" />
+        <BarChart series={data.regsSeries} accent="#d63f9d" label="Registrations" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <RankBars title="Registrations by service" rows={data.topServices} accent="#d63f9d" />
+        <RankBars title="Top pages" rows={data.topPaths} accent="#8b5cf6" />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Projects (Selected Work) manager                                    */
+/* ------------------------------------------------------------------ */
+function ProjectForm({ initial, onClose }) {
+  const [f, setF] = useState({
+    name: initial?.name || "",
+    category: initial?.category || "",
+    year: initial?.year || String(new Date().getFullYear()),
+    accent: initial?.accent || "#8b5cf6",
+    url: initial?.url || "",
+    order: initial?.order ?? 0,
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.name.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await saveProject({ ...initial, ...f, order: Number(f.order) || 0 });
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <Field label="Project name">
+        <input className={inputCls} value={f.name} onChange={set("name")} placeholder="Lumen Finance" />
+      </Field>
+      <Field label="Category">
+        <input className={inputCls} value={f.category} onChange={set("category")} placeholder="Fintech · Brand + Web" />
+      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Year">
+          <input className={inputCls} value={f.year} onChange={set("year")} placeholder="2025" />
+        </Field>
+        <Field label="Order">
+          <input type="number" className={inputCls} value={f.order} onChange={set("order")} />
+        </Field>
+      </div>
+      <Field label="Case-study URL (optional)">
+        <input className={inputCls} value={f.url} onChange={set("url")} placeholder="https://…" />
+      </Field>
+      <Field label="Accent colour">
+        <div className="flex items-center gap-3">
+          <input type="color" value={f.accent} onChange={set("accent")} className="h-10 w-12 cursor-pointer rounded-lg border border-line bg-transparent" />
+          <input className={inputCls} value={f.accent} onChange={set("accent")} placeholder="#8b5cf6" />
+        </div>
+      </Field>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">
+          Cancel
+        </button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Saving…" : initial ? "Save changes" : "Add project"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Projects({ db }) {
+  const [editing, setEditing] = useState(null);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-haze">{db.projects.length} projects</p>
+        <button onClick={() => setEditing("new")} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white">
+          <HiPlus /> New project
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {db.projects.map((p) => (
+          <div key={p.id} className="rounded-2xl border border-line bg-ink-soft p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="h-9 w-9 shrink-0 rounded-lg border border-white/10" style={{ background: p.accent }} />
+                <div>
+                  <h3 className="font-display text-lg font-medium">{p.name}</h3>
+                  <p className="text-xs text-haze">{p.category || "—"} · {p.year}</p>
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2 text-haze">
+                <button onClick={() => setEditing(p)} className="transition-colors hover:text-accent" title="Edit"><HiOutlinePencilSquare /></button>
+                <button onClick={() => deleteProject(p.id)} className="transition-colors hover:text-red-400" title="Delete"><HiOutlineTrash /></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <Modal title={editing === "new" ? "New project" : "Edit project"} onClose={() => setEditing(null)}>
+          <ProjectForm initial={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* FAQ manager                                                         */
+/* ------------------------------------------------------------------ */
+function FaqForm({ initial, onClose }) {
+  const [f, setF] = useState({
+    question: initial?.question || "",
+    answer: initial?.answer || "",
+    order: initial?.order ?? 0,
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.question.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await saveFaq({ ...initial, ...f, order: Number(f.order) || 0 });
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <Field label="Question">
+        <input className={inputCls} value={f.question} onChange={set("question")} placeholder="How much does a project cost?" />
+      </Field>
+      <Field label="Answer">
+        <textarea className={`${inputCls} min-h-32 resize-y`} value={f.answer} onChange={set("answer")} placeholder="Write the answer…" />
+      </Field>
+      <Field label="Order">
+        <input type="number" className={inputCls} value={f.order} onChange={set("order")} />
+      </Field>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Cancel</button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Saving…" : initial ? "Save changes" : "Add FAQ"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Faqs({ db }) {
+  const [editing, setEditing] = useState(null);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-haze">{db.faqs.length} questions</p>
+        <button onClick={() => setEditing("new")} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white">
+          <HiPlus /> New FAQ
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-line">
+        {db.faqs.map((q) => (
+          <div key={q.id} className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 last:border-b-0 hover:bg-white/[0.015]">
+            <div className="min-w-0">
+              <h3 className="font-medium text-white">{q.question}</h3>
+              <p className="mt-0.5 line-clamp-1 text-xs text-haze">{q.answer}</p>
+            </div>
+            <div className="flex shrink-0 gap-3 text-haze">
+              <button onClick={() => setEditing(q)} className="transition-colors hover:text-accent" title="Edit"><HiOutlinePencilSquare /></button>
+              <button onClick={() => deleteFaq(q.id)} className="transition-colors hover:text-red-400" title="Delete"><HiOutlineTrash /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <Modal title={editing === "new" ? "New FAQ" : "Edit FAQ"} onClose={() => setEditing(null)}>
+          <FaqForm initial={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Stats manager                                                       */
+/* ------------------------------------------------------------------ */
+function StatForm({ initial, onClose }) {
+  const [f, setF] = useState({
+    value: initial?.value ?? 0,
+    suffix: initial?.suffix || "",
+    label: initial?.label || "",
+    order: initial?.order ?? 0,
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.label.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await saveStat({ ...initial, ...f, value: Number(f.value) || 0, order: Number(f.order) || 0 });
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Value (number)">
+          <input type="number" className={inputCls} value={f.value} onChange={set("value")} placeholder="120" />
+        </Field>
+        <Field label="Suffix">
+          <input className={inputCls} value={f.suffix} onChange={set("suffix")} placeholder="+ / yr / %" />
+        </Field>
+      </div>
+      <Field label="Label">
+        <input className={inputCls} value={f.label} onChange={set("label")} placeholder="Projects shipped" />
+      </Field>
+      <Field label="Order">
+        <input type="number" className={inputCls} value={f.order} onChange={set("order")} />
+      </Field>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Cancel</button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Saving…" : initial ? "Save changes" : "Add stat"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Stats({ db }) {
+  const [editing, setEditing] = useState(null);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-haze">{db.stats.length} stats</p>
+        <button onClick={() => setEditing("new")} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white">
+          <HiPlus /> New stat
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {db.stats.map((s) => (
+          <div key={s.id} className="rounded-2xl border border-line bg-ink-soft p-5">
+            <div className="flex items-start justify-between">
+              <div className="font-display text-3xl font-semibold">
+                {s.value}
+                <span className="text-accent">{s.suffix}</span>
+              </div>
+              <div className="flex gap-2 text-haze">
+                <button onClick={() => setEditing(s)} className="transition-colors hover:text-accent" title="Edit"><HiOutlinePencilSquare /></button>
+                <button onClick={() => deleteStat(s.id)} className="transition-colors hover:text-red-400" title="Delete"><HiOutlineTrash /></button>
+              </div>
+            </div>
+            <p className="mt-2 text-sm text-haze">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <Modal title={editing === "new" ? "New stat" : "Edit stat"} onClose={() => setEditing(null)}>
+          <StatForm initial={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Dashboard shell                                                     */
 /* ------------------------------------------------------------------ */
 const tabs = [
   { id: "overview", label: "Overview", icon: HiOutlineSquares2X2 },
+  { id: "analytics", label: "Analytics", icon: HiOutlineChartBarSquare },
   { id: "registrations", label: "Registrations", icon: HiOutlineUsers },
-  { id: "posts", label: "Blog posts", icon: HiOutlineNewspaper },
+  { id: "projects", label: "Selected work", icon: HiOutlineBriefcase },
   { id: "services", label: "Services", icon: HiOutlineWrenchScrewdriver },
+  { id: "posts", label: "Blog posts", icon: HiOutlineNewspaper },
+  { id: "faqs", label: "FAQ", icon: HiOutlineQuestionMarkCircle },
+  { id: "stats", label: "Stats", icon: HiOutlineHashtag },
 ];
 
 export default function Admin() {
@@ -624,9 +1118,13 @@ export default function Admin() {
 
         <div className="p-6 md:p-10">
           {tab === "overview" && <Overview db={db} setTab={setTab} />}
+          {tab === "analytics" && <Analytics />}
           {tab === "registrations" && <Registrations db={db} />}
-          {tab === "posts" && <Posts db={db} />}
+          {tab === "projects" && <Projects db={db} />}
           {tab === "services" && <Services db={db} />}
+          {tab === "posts" && <Posts db={db} />}
+          {tab === "faqs" && <Faqs db={db} />}
+          {tab === "stats" && <Stats db={db} />}
         </div>
       </main>
     </div>

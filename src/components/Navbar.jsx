@@ -1,21 +1,29 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { HiArrowUpRight } from "react-icons/hi2";
+import { useDB } from "../lib/store";
 
+// Ordered to match the actual top-to-bottom flow of the page, so the active
+// underline moves in one direction as you scroll (no more back-and-forth).
 const links = [
-  { label: "Work", href: "#work" },
   { label: "Services", href: "#services" },
+  { label: "Work", href: "#work" },
   { label: "Process", href: "#process" },
   { label: "Studio", href: "#studio" },
   { label: "Blog", href: "#blog" },
   { label: "FAQ", href: "#faq" },
-  { label: "Register", href: "#register" },
 ];
 
 export default function Navbar() {
+  const db = useDB();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState("");
+
+  // Some sections (Blog, FAQ, Work…) only mount once their data loads, so this
+  // signature changes as sections appear/disappear and re-arms the observer.
+  const sectionSignature = `${db.loading}|${db.posts.length}|${db.faqs.length}|${db.projects.length}|${db.services.length}|${db.stats.length}`;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -24,24 +32,37 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Close the mobile menu when the viewport grows to desktop
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 1024) setOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // Highlight the nav link for whichever section is currently in view
   useEffect(() => {
     const sections = links
       .map((l) => document.getElementById(l.href.slice(1)))
       .filter(Boolean);
+    if (!sections.length) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) setActive(entry.target.id);
-        });
+        // pick the entry nearest the top of the active band
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
       },
       { rootMargin: "-45% 0px -50% 0px", threshold: 0 }
     );
 
     sections.forEach((s) => observer.observe(s));
     return () => observer.disconnect();
-  }, []);
+    // re-run when the set of on-page sections changes
+  }, [sectionSignature]);
 
   return (
     <motion.header
@@ -90,18 +111,19 @@ export default function Navbar() {
           })}
         </div>
 
-        <a
-          href="#contact"
+        <Link
+          to="/register"
           className="btn-violet group hidden items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-transform hover:scale-[1.03] lg:inline-flex"
         >
           Start a project
           <HiArrowUpRight className="transition-transform group-hover:rotate-45" />
-        </a>
+        </Link>
 
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex h-10 w-10 flex-col items-center justify-center gap-1.5 lg:hidden"
           aria-label="Menu"
+          aria-expanded={open}
         >
           <span
             className={`h-px w-6 bg-white transition-all ${open ? "translate-y-[3px] rotate-45" : ""}`}
@@ -136,13 +158,13 @@ export default function Navbar() {
                 </a>
               );
             })}
-            <a
-              href="#contact"
+            <Link
+              to="/register"
               onClick={() => setOpen(false)}
               className="btn-violet mt-2 rounded-xl px-4 py-3 text-center font-medium"
             >
               Start a project
-            </a>
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

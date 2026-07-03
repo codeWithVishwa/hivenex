@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, animate } from "framer-motion";
 import { Reveal, TextReveal } from "./ui/Reveal";
+import { useDB } from "../lib/store";
 
 function Counter({ to, suffix = "" }) {
   const ref = useRef(null);
@@ -25,14 +26,9 @@ function Counter({ to, suffix = "" }) {
   );
 }
 
-const stats = [
-  { value: 120, suffix: "+", label: "Projects shipped" },
-  { value: 38, suffix: "+", label: "Global clients" },
-  { value: 14, suffix: "", label: "Design awards" },
-  { value: 9, suffix: "yr", label: "In the game" },
-];
-
 export default function Stats() {
+  const { stats } = useDB();
+
   return (
     <section id="studio" className="relative bg-ink-soft px-6 py-28 md:py-40">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-16 lg:grid-cols-2 lg:gap-24">
@@ -66,7 +62,7 @@ export default function Stats() {
         <div className="grid grid-cols-2 gap-px self-center overflow-hidden rounded-3xl border border-line bg-line">
           {stats.map((s, i) => (
             <motion.div
-              key={s.label}
+              key={s.id}
               initial={{ opacity: 0, x: i % 2 === 0 ? -60 : 60, y: 20 }}
               whileInView={{ opacity: 1, x: 0, y: 0 }}
               viewport={{ once: true }}

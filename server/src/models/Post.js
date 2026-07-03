@@ -5,6 +5,7 @@ const postSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     category: { type: String, default: "General" },
     excerpt: { type: String, default: "" },
+    content: { type: String, default: "" },
     date: { type: String, default: "" },
     read: { type: String, default: "5 min read" },
     featured: { type: Boolean, default: false },

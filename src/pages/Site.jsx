@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion, useScroll, useSpring } from "framer-motion";
 import Lenis from "lenis";
+import { trackPageview } from "../lib/store";
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Marquee from "../components/Marquee";
@@ -20,6 +21,11 @@ export default function Site() {
     damping: 30,
     restDelta: 0.001,
   });
+
+  // Record a page view once per load
+  useEffect(() => {
+    trackPageview("/");
+  }, []);
 
   // Buttery smooth inertia scrolling
   useEffect(() => {

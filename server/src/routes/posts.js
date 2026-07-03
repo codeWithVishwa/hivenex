@@ -10,6 +10,17 @@ router.get("/", async (_req, res) => {
   res.json(posts);
 });
 
+// Public: a single post
+router.get("/:id", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ error: "Not found" });
+    res.json(post);
+  } catch {
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
 // Admin: create
 router.post("/", requireAuth, async (req, res) => {
   if (!req.body.title?.trim())

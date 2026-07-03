@@ -1,7 +1,10 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { HiArrowUpRight } from "react-icons/hi2";
 import { Reveal, TextReveal } from "./ui/Reveal";
 import { useDB } from "../lib/store";
+
+const MotionLink = motion.create(Link);
 
 function Meta({ post }) {
   return (
@@ -52,8 +55,8 @@ export default function Blog() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           {/* Featured post */}
-          <motion.a
-            href="#"
+          <MotionLink
+            to={`/blog/${featured.id}`}
             initial={{ opacity: 0, x: -90 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -76,13 +79,13 @@ export default function Blog() {
               </h3>
               <p className="text-haze">{featured.excerpt}</p>
             </div>
-          </motion.a>
+          </MotionLink>
 
           {/* Post list */}
           <div className="flex flex-col">
             {rest.map((post, i) => (
-              <motion.a
-                href="#"
+              <MotionLink
+                to={`/blog/${post.id}`}
                 key={post.id}
                 initial={{ opacity: 0, x: 90 }}
                 whileInView={{ opacity: 1, x: 0 }}
@@ -100,7 +103,7 @@ export default function Blog() {
                 <span className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line transition-all duration-300 group-hover:border-accent group-hover:bg-accent group-hover:text-white">
                   <HiArrowUpRight className="transition-transform group-hover:rotate-45" />
                 </span>
-              </motion.a>
+              </MotionLink>
             ))}
           </div>
         </div>

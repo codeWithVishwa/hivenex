@@ -8,37 +8,7 @@ import {
 } from "framer-motion";
 import { HiArrowUpRight } from "react-icons/hi2";
 import { Reveal, TextReveal } from "./ui/Reveal";
-
-const projects = [
-  {
-    name: "Lumen Finance",
-    cat: "Fintech · Brand + Web",
-    year: "2025",
-    gradient: "from-[#2a1030] via-[#160a2e] to-[#ff5e7a]/30",
-    accent: "#ff5e7a",
-  },
-  {
-    name: "Atlas Studios",
-    cat: "Media · Identity",
-    year: "2025",
-    gradient: "from-[#2a1030] via-[#160a2e] to-[#d63f9d]/30",
-    accent: "#d63f9d",
-  },
-  {
-    name: "Nova Health",
-    cat: "Product · App Design",
-    year: "2024",
-    gradient: "from-[#1e1245] via-[#160a2e] to-[#a34dd9]/30",
-    accent: "#a34dd9",
-  },
-  {
-    name: "Form & Field",
-    cat: "E-commerce · Development",
-    year: "2024",
-    gradient: "from-[#1e1245] via-[#160a2e] to-[#7c3aed]/30",
-    accent: "#7c3aed",
-  },
-];
+import { useDB } from "../lib/store";
 
 const spring = { stiffness: 150, damping: 18, mass: 0.4 };
 
@@ -74,7 +44,9 @@ function ProjectCard({ project, index }) {
 
   return (
     <motion.a
-      href="#"
+      href={project.url || "#"}
+      target={project.url && project.url !== "#" ? "_blank" : undefined}
+      rel="noreferrer"
       ref={ref}
       onMouseMove={onMove}
       onMouseLeave={reset}
@@ -86,7 +58,10 @@ function ProjectCard({ project, index }) {
       className="group relative block rounded-3xl border border-white/10 bg-ink"
     >
       <div
-        className={`relative aspect-[4/3] overflow-hidden rounded-t-3xl bg-gradient-to-br ${project.gradient}`}
+        className="relative aspect-[4/3] overflow-hidden rounded-t-3xl"
+        style={{
+          backgroundImage: `linear-gradient(135deg, #2a1030 0%, #160a2e 55%, ${project.accent}4d 100%)`,
+        }}
       >
         {/* cursor spotlight */}
         <motion.div
@@ -130,7 +105,7 @@ function ProjectCard({ project, index }) {
           <h3 className="font-display text-2xl font-medium tracking-tight transition-colors group-hover:text-white">
             {project.name}
           </h3>
-          <p className="mt-1 text-sm text-haze">{project.cat}</p>
+          <p className="mt-1 text-sm text-haze">{project.category}</p>
         </div>
         <span className="font-display text-sm text-haze">{project.year}</span>
       </div>
@@ -145,6 +120,8 @@ function ProjectCard({ project, index }) {
 }
 
 export default function Work() {
+  const { projects } = useDB();
+
   return (
     <section
       id="work"
@@ -176,7 +153,7 @@ export default function Work() {
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-10">
           {projects.map((p, i) => (
-            <ProjectCard key={p.name} project={p} index={i} />
+            <ProjectCard key={p.id} project={p} index={i} />
           ))}
         </div>
       </div>
