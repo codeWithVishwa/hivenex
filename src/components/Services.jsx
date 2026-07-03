@@ -25,12 +25,14 @@ function RaiseCard({ service, index }) {
 
   return (
     <div ref={ref} style={{ perspective: 1200 }}>
-      <motion.article
-        style={{ y, scale, rotateX, opacity, transformStyle: "preserve-3d" }}
-        whileHover={{ y: -8 }}
-        transition={{ type: "spring", stiffness: 260, damping: 24 }}
-        className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.01] p-8 backdrop-blur-xl md:p-12"
-      >
+      {/* Scroll layer — owns y/scale/rotateX/opacity (driven by scroll only) */}
+      <motion.div style={{ y, scale, rotateX, opacity }} className="will-change-transform">
+        {/* Hover layer — owns its own y (the lift), so the two never fight */}
+        <motion.article
+          whileHover={{ y: -8 }}
+          transition={{ type: "spring", stiffness: 260, damping: 24 }}
+          className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.01] p-8 backdrop-blur-xl md:p-12"
+        >
         {/* accent glow */}
         <div
           className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-35 blur-[90px] transition-opacity duration-500 group-hover:opacity-70"
@@ -77,12 +79,13 @@ function RaiseCard({ service, index }) {
           </span>
         </div>
 
-        {/* animated bottom accent line */}
-        <span
-          className="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-500 group-hover:w-full"
-          style={{ background: accent }}
-        />
-      </motion.article>
+          {/* animated bottom accent line */}
+          <span
+            className="absolute bottom-0 left-0 h-0.5 w-0 transition-all duration-500 group-hover:w-full"
+            style={{ background: accent }}
+          />
+        </motion.article>
+      </motion.div>
     </div>
   );
 }
