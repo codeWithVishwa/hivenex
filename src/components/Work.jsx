@@ -1,5 +1,11 @@
 import { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  useMotionTemplate,
+} from "framer-motion";
 import { HiArrowUpRight } from "react-icons/hi2";
 import { Reveal, TextReveal } from "./ui/Reveal";
 
@@ -34,62 +40,116 @@ const projects = [
   },
 ];
 
+const spring = { stiffness: 150, damping: 18, mass: 0.4 };
+
 function ProjectCard({ project, index }) {
   const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end start"],
-  });
-  // alternating parallax drift (subtle — avoids gaps on smaller screens)
-  const y = useTransform(
-    scrollYProgress,
-    [0, 1],
-    [index % 2 === 0 ? 30 : 60, index % 2 === 0 ? -30 : -60]
-  );
+
+  // normalised cursor position within the card (0..1)
+  const mx = useMotionValue(0.5);
+  const my = useMotionValue(0.5);
+
+  // interactive 3D tilt toward the cursor
+  const rotateX = useSpring(useTransform(my, [0, 1], [10, -10]), spring);
+  const rotateY = useSpring(useTransform(mx, [0, 1], [-12, 12]), spring);
+
+  // in-card parallax for the title watermark
+  const wmX = useSpring(useTransform(mx, [0, 1], [-20, 20]), spring);
+  const wmY = useSpring(useTransform(my, [0, 1], [-14, 14]), spring);
+
+  // cursor-following spotlight
+  const gx = useTransform(mx, (v) => `${v * 100}%`);
+  const gy = useTransform(my, (v) => `${v * 100}%`);
+  const spotlight = useMotionTemplate`radial-gradient(340px circle at ${gx} ${gy}, rgba(255,255,255,0.14), transparent 60%)`;
+
+  const onMove = (e) => {
+    const r = ref.current.getBoundingClientRect();
+    mx.set((e.clientX - r.left) / r.width);
+    my.set((e.clientY - r.top) / r.height);
+  };
+  const reset = () => {
+    mx.set(0.5);
+    my.set(0.5);
+  };
 
   return (
     <motion.a
       href="#"
       ref={ref}
-      style={{ y }}
-      className={`group relative block overflow-hidden rounded-3xl border border-line ${
-        index % 2 === 0 ? "md:mt-0" : "md:mt-24"
-      }`}
+      onMouseMove={onMove}
+      onMouseLeave={reset}
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.7, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+      style={{ rotateX, rotateY, transformPerspective: 900 }}
+      className="group relative block rounded-3xl border border-white/10 bg-ink"
     >
       <div
-        className={`relative aspect-[4/3] bg-gradient-to-br ${project.gradient}`}
+        className={`relative aspect-[4/3] overflow-hidden rounded-t-3xl bg-gradient-to-br ${project.gradient}`}
       >
-        {/* noise + radial */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.06),transparent_50%)]" />
-        <div className="absolute inset-0 flex items-center justify-center">
+        {/* cursor spotlight */}
+        <motion.div
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          style={{ background: spotlight }}
+        />
+        {/* soft radial */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.06),transparent_50%)]" />
+
+        {/* parallax title watermark */}
+        <motion.div
+          style={{ x: wmX, y: wmY }}
+          className="absolute inset-0 flex items-center justify-center"
+        >
           <span
-            className="font-display text-7xl font-bold opacity-[0.07] transition-all duration-700 group-hover:scale-110 group-hover:opacity-20 md:text-8xl"
+            className="font-display text-7xl font-bold opacity-[0.09] transition-opacity duration-500 group-hover:opacity-25 md:text-8xl"
             style={{ color: project.accent }}
           >
             {project.name.split(" ")[0]}
           </span>
-        </div>
+        </motion.div>
+
+        {/* arrow badge */}
         <div className="absolute right-5 top-5 flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/30 backdrop-blur-md transition-all duration-500 group-hover:scale-110 group-hover:border-transparent group-hover:bg-white group-hover:text-black">
           <HiArrowUpRight className="text-lg transition-transform group-hover:rotate-45" />
+        </div>
+
+        {/* hover reveal — "view case study" bar slides up */}
+        <div className="absolute inset-x-0 bottom-0 flex translate-y-full items-center justify-center pb-5 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-y-0">
+          <span
+            className="rounded-full px-5 py-2.5 text-sm font-medium text-black shadow-lg"
+            style={{ background: project.accent }}
+          >
+            View case study →
+          </span>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 px-6 py-5">
         <div>
-          <h3 className="font-display text-2xl font-medium tracking-tight">
+          <h3 className="font-display text-2xl font-medium tracking-tight transition-colors group-hover:text-white">
             {project.name}
           </h3>
           <p className="mt-1 text-sm text-haze">{project.cat}</p>
         </div>
         <span className="font-display text-sm text-haze">{project.year}</span>
       </div>
+
+      {/* accent underline */}
+      <span
+        className="absolute bottom-0 left-0 h-0.5 w-0 rounded-full transition-all duration-500 group-hover:w-full"
+        style={{ background: project.accent }}
+      />
     </motion.a>
   );
 }
 
 export default function Work() {
   return (
-    <section id="work" className="relative overflow-hidden bg-ink-soft px-6 py-28 md:py-40">
+    <section
+      id="work"
+      className="relative overflow-hidden bg-ink-soft px-6 py-28 md:py-40"
+    >
       <div className="mx-auto max-w-7xl">
         <div className="mb-20 flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
