@@ -1,6 +1,8 @@
 import { Router } from "express";
 import Registration from "../models/Registration.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
+
+const adminOnly = requireRole("admin", "super_admin");
 
 const router = Router();
 
@@ -27,13 +29,13 @@ router.post("/", async (req, res) => {
 });
 
 // Admin: list all registrations (newest first)
-router.get("/", requireAuth, async (_req, res) => {
+router.get("/", adminOnly, async (_req, res) => {
   const regs = await Registration.find().sort({ createdAt: -1 });
   res.json(regs);
 });
 
 // Admin: delete
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", adminOnly, async (req, res) => {
   await Registration.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

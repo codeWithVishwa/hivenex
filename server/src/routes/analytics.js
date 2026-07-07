@@ -3,7 +3,9 @@ import PageView from "../models/PageView.js";
 import Registration from "../models/Registration.js";
 import Post from "../models/Post.js";
 import Service from "../models/Service.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
+
+const adminOnly = requireRole("admin", "super_admin");
 
 const router = Router();
 
@@ -56,7 +58,7 @@ async function dailyCounts(Model, days) {
 }
 
 // Admin: aggregated analytics
-router.get("/", requireAuth, async (_req, res) => {
+router.get("/", adminOnly, async (_req, res) => {
   const days = 14;
 
   const [

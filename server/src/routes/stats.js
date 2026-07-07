@@ -1,6 +1,8 @@
 import { Router } from "express";
 import Stat from "../models/Stat.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
+
+const adminOnly = requireRole("admin", "super_admin");
 
 const router = Router();
 
@@ -9,14 +11,14 @@ router.get("/", async (_req, res) => {
   res.json(stats);
 });
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", adminOnly, async (req, res) => {
   if (!req.body.label?.trim())
     return res.status(400).json({ error: "Label required" });
   const stat = await Stat.create(req.body);
   res.status(201).json(stat);
 });
 
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", adminOnly, async (req, res) => {
   const stat = await Stat.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true,
@@ -25,7 +27,7 @@ router.put("/:id", requireAuth, async (req, res) => {
   res.json(stat);
 });
 
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", adminOnly, async (req, res) => {
   await Stat.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

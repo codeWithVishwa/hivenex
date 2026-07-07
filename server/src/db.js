@@ -4,6 +4,7 @@ import Post from "./models/Post.js";
 import Project from "./models/Project.js";
 import FaqItem from "./models/FaqItem.js";
 import Stat from "./models/Stat.js";
+import User from "./models/User.js";
 
 const seedServices = [
   {
@@ -141,6 +142,22 @@ export async function seedIfEmpty() {
   if ((await Stat.estimatedDocumentCount()) === 0) {
     await Stat.insertMany(seedStats);
     console.log("🌱 Seeded default stats");
+  }
+  // Seed the super admin account if there are no users yet
+  if ((await User.estimatedDocumentCount()) === 0) {
+    const username = (
+      process.env.SUPER_ADMIN_USERNAME || "superadmin"
+    ).toLowerCase();
+    const password =
+      process.env.SUPER_ADMIN_PASSWORD ||
+      process.env.ADMIN_PASSWORD ||
+      "admin123";
+    await User.create({
+      username,
+      passwordHash: await User.hashPassword(password),
+      role: "super_admin",
+    });
+    console.log(`🌱 Seeded super admin "${username}"`);
   }
 }
 

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import Service from "../models/Service.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
+
+const adminOnly = requireRole("admin", "super_admin");
 
 const router = Router();
 
@@ -11,7 +13,7 @@ router.get("/", async (_req, res) => {
 });
 
 // Admin: create
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", adminOnly, async (req, res) => {
   const { title, desc, tags } = req.body;
   if (!title?.trim()) return res.status(400).json({ error: "Title required" });
   const service = await Service.create({ title, desc, tags });
@@ -19,7 +21,7 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 // Admin: update
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", adminOnly, async (req, res) => {
   const { title, desc, tags } = req.body;
   const service = await Service.findByIdAndUpdate(
     req.params.id,
@@ -31,7 +33,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 });
 
 // Admin: delete
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", adminOnly, async (req, res) => {
   await Service.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

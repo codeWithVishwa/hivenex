@@ -1,6 +1,8 @@
 import { Router } from "express";
 import Project from "../models/Project.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
+
+const adminOnly = requireRole("admin", "super_admin");
 
 const router = Router();
 
@@ -9,14 +11,14 @@ router.get("/", async (_req, res) => {
   res.json(projects);
 });
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", adminOnly, async (req, res) => {
   if (!req.body.name?.trim())
     return res.status(400).json({ error: "Name required" });
   const project = await Project.create(req.body);
   res.status(201).json(project);
 });
 
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", adminOnly, async (req, res) => {
   const project = await Project.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true,
@@ -25,7 +27,7 @@ router.put("/:id", requireAuth, async (req, res) => {
   res.json(project);
 });
 
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", adminOnly, async (req, res) => {
   await Project.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

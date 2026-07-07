@@ -2,6 +2,15 @@ import { useSyncExternalStore } from "react";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 const TOKEN_KEY = "hivenex_token";
+const USER_KEY = "hivenex_user";
+
+function readStoredUser() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
 
 let state = {
   services: [],
@@ -10,7 +19,11 @@ let state = {
   faqs: [],
   stats: [],
   registrations: [],
-  auth: { loggedIn: !!localStorage.getItem(TOKEN_KEY) },
+  users: [],
+  auth: {
+    loggedIn: !!localStorage.getItem(TOKEN_KEY),
+    user: readStoredUser(),
+  },
   loading: true,
   error: null,
 };
@@ -83,29 +96,54 @@ export async function loadPublic() {
   }
 }
 
+const isAdminish = () =>
+  ["admin", "super_admin"].includes(state.auth.user?.role);
+
 export async function loadRegistrations() {
-  if (!token()) return;
+  if (!token() || !isAdminish()) return;
   try {
     const regs = await api("/registrations", { auth: true });
     set({ registrations: regs.map(norm) });
   } catch {
-    /* 401 already handled in api() */
+    /* 401/403 handled elsewhere */
+  }
+}
+
+// Load the data appropriate to the current role
+async function loadRoleData() {
+  if (isAdminish()) {
+    await loadRegistrations();
+    await loadUsers();
+  }
+}
+
+// Verify the stored token and refresh the current user
+async function restoreSession() {
+  if (!token()) return;
+  try {
+    const { user } = await api("/auth/me", { auth: true });
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    set({ auth: { loggedIn: true, user } });
+    await loadRoleData();
+  } catch {
+    doLogout();
   }
 }
 
 loadPublic();
-if (token()) loadRegistrations();
+restoreSession();
 
 /* ---------- Auth ---------- */
-export async function login(password) {
+export async function login(username, password) {
   try {
-    const { token: t } = await api("/auth/login", {
+    const { token: t, user } = await api("/auth/login", {
       method: "POST",
-      body: { password },
+      body: { username, password },
     });
     localStorage.setItem(TOKEN_KEY, t);
-    set({ auth: { loggedIn: true } });
-    await loadRegistrations();
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    set({ auth: { loggedIn: true, user } });
+    await loadRoleData();
     return true;
   } catch {
     return false;
@@ -114,9 +152,45 @@ export async function login(password) {
 
 function doLogout() {
   localStorage.removeItem(TOKEN_KEY);
-  set({ auth: { loggedIn: false }, registrations: [] });
+  localStorage.removeItem(USER_KEY);
+  set({
+    auth: { loggedIn: false, user: null },
+    registrations: [],
+    users: [],
+  });
 }
 export const logout = doLogout;
+
+/* ---------- Users (super admin) ---------- */
+export async function loadUsers() {
+  if (state.auth.user?.role !== "super_admin") return;
+  try {
+    const users = await api("/users", { auth: true });
+    set({ users: users.map(norm) });
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function createUser(data) {
+  const created = norm(
+    await api("/users", { method: "POST", body: data, auth: true })
+  );
+  set({ users: [...state.users, created] });
+}
+
+export async function deleteUser(id) {
+  await api(`/users/${id}`, { method: "DELETE", auth: true });
+  set({ users: state.users.filter((u) => u.id !== id) });
+}
+
+export async function resetUserPassword(id, password) {
+  await api(`/users/${id}/password`, {
+    method: "PUT",
+    body: { password },
+    auth: true,
+  });
+}
 
 /* ---------- Registrations ---------- */
 export async function addRegistration(data) {

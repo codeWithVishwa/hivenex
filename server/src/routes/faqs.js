@@ -1,6 +1,8 @@
 import { Router } from "express";
 import FaqItem from "../models/FaqItem.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
+
+const adminOnly = requireRole("admin", "super_admin");
 
 const router = Router();
 
@@ -9,14 +11,14 @@ router.get("/", async (_req, res) => {
   res.json(faqs);
 });
 
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", adminOnly, async (req, res) => {
   if (!req.body.question?.trim())
     return res.status(400).json({ error: "Question required" });
   const faq = await FaqItem.create(req.body);
   res.status(201).json(faq);
 });
 
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", adminOnly, async (req, res) => {
   const faq = await FaqItem.findByIdAndUpdate(req.params.id, req.body, {
     new: true,
     runValidators: true,
@@ -25,7 +27,7 @@ router.put("/:id", requireAuth, async (req, res) => {
   res.json(faq);
 });
 
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", adminOnly, async (req, res) => {
   await FaqItem.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

@@ -1,8 +1,11 @@
 import { Router } from "express";
 import Post from "../models/Post.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireRole } from "../middleware/auth.js";
 
 const router = Router();
+
+// Moderators (and above) can manage blog posts
+const canEditPosts = requireRole("moderator", "admin", "super_admin");
 
 // Public: list posts (newest first)
 router.get("/", async (_req, res) => {
@@ -22,7 +25,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // Admin: create
-router.post("/", requireAuth, async (req, res) => {
+router.post("/", canEditPosts, async (req, res) => {
   if (!req.body.title?.trim())
     return res.status(400).json({ error: "Title required" });
   // only one featured post at a time
@@ -32,7 +35,7 @@ router.post("/", requireAuth, async (req, res) => {
 });
 
 // Admin: update
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", canEditPosts, async (req, res) => {
   if (req.body.featured)
     await Post.updateMany({ _id: { $ne: req.params.id } }, { featured: false });
   const post = await Post.findByIdAndUpdate(req.params.id, req.body, {
@@ -44,7 +47,7 @@ router.put("/:id", requireAuth, async (req, res) => {
 });
 
 // Admin: delete
-router.delete("/:id", requireAuth, async (req, res) => {
+router.delete("/:id", canEditPosts, async (req, res) => {
   await Post.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });

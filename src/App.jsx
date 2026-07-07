@@ -3,6 +3,7 @@ import Site from "./pages/Site";
 import Admin from "./pages/Admin";
 import BlogPost from "./pages/BlogPost";
 import RegisterPage from "./pages/RegisterPage";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <Route path="/blog/:id" element={<BlogPost />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

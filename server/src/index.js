@@ -16,6 +16,7 @@ import projectRoutes from "./routes/projects.js";
 import faqRoutes from "./routes/faqs.js";
 import statRoutes from "./routes/stats.js";
 import analyticsRoutes from "./routes/analytics.js";
+import userRoutes from "./routes/users.js";
 
 // Prefer public resolvers (helps with some MongoDB Atlas SRV lookups)
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -72,6 +73,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/faqs", faqRoutes);
 app.use("/api/stats", statRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/users", authLimiter, userRoutes);
 
 // ---- Serve the built frontend in production (single-service deploy) ----
 if (isProd) {

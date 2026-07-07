@@ -10,6 +10,8 @@ import {
   HiOutlineBriefcase,
   HiOutlineQuestionMarkCircle,
   HiOutlineHashtag,
+  HiOutlineUserGroup,
+  HiOutlineKey,
   HiPlus,
   HiOutlinePencilSquare,
   HiOutlineTrash,
@@ -35,24 +37,32 @@ import {
   saveStat,
   deleteStat,
   loadAnalytics,
+  createUser,
+  deleteUser,
+  resetUserPassword,
 } from "../lib/store";
 
 /* ------------------------------------------------------------------ */
 /* Login gate                                                          */
 /* ------------------------------------------------------------------ */
 function Login() {
+  const [username, setUsername] = useState("");
   const [pw, setPw] = useState("");
   const [error, setError] = useState(false);
-
   const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true);
-    const ok = await login(pw);
+    const ok = await login(username.trim(), pw);
     setBusy(false);
     if (!ok) setError(true);
   };
+
+  const fieldCls = (bad) =>
+    `mt-2 w-full rounded-xl border bg-black/40 px-4 py-3.5 text-sm outline-none transition-colors focus:border-accent ${
+      bad ? "border-red-500/60" : "border-line"
+    }`;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-ink px-6 text-white">
@@ -69,42 +79,57 @@ function Login() {
             <span className="text-gradient">Hivenex.</span>
           </span>
           <span className="ml-auto text-xs uppercase tracking-[0.2em] text-haze">
-            Admin
+            Team
           </span>
         </div>
         <h1 className="font-display text-2xl font-medium">Sign in</h1>
         <p className="mt-2 text-sm text-haze">
-          Enter the admin password to manage the studio.
+          Sign in with your team credentials.
         </p>
+
+        <label className="mt-6 block text-xs uppercase tracking-[0.15em] text-haze">
+          Username
+        </label>
+        <input
+          autoFocus
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            setError(false);
+          }}
+          placeholder="username"
+          autoComplete="username"
+          className={fieldCls(error)}
+        />
+
+        <label className="mt-4 block text-xs uppercase tracking-[0.15em] text-haze">
+          Password
+        </label>
         <input
           type="password"
-          autoFocus
           value={pw}
           onChange={(e) => {
             setPw(e.target.value);
             setError(false);
           }}
-          placeholder="Password"
-          className={`mt-6 w-full rounded-xl border bg-black/40 px-4 py-3.5 text-sm outline-none transition-colors focus:border-accent ${
-            error ? "border-red-500/60" : "border-line"
-          }`}
+          placeholder="••••••••"
+          autoComplete="current-password"
+          className={fieldCls(error)}
         />
+
         {error && (
-          <p className="mt-2 text-xs text-red-400">Incorrect password.</p>
+          <p className="mt-3 text-xs text-red-400">Invalid username or password.</p>
         )}
         <button
           type="submit"
           disabled={busy}
-          className="btn-violet mt-5 w-full rounded-xl px-6 py-3.5 font-medium disabled:opacity-60"
+          className="btn-violet mt-6 w-full rounded-xl px-6 py-3.5 font-medium disabled:opacity-60"
         >
           {busy ? "Signing in…" : "Enter dashboard"}
         </button>
-        <p className="mt-5 text-center text-xs text-haze">
-          Demo password: <span className="text-white">admin123</span>
-        </p>
         <Link
           to="/"
-          className="mt-4 flex items-center justify-center gap-1.5 text-xs text-haze transition-colors hover:text-white"
+          className="mt-5 flex items-center justify-center gap-1.5 text-xs text-haze transition-colors hover:text-white"
         >
           <HiArrowLeft /> Back to site
         </Link>
@@ -1024,26 +1049,211 @@ function Stats({ db }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Team (users) manager — super admin only                             */
+/* ------------------------------------------------------------------ */
+const roleLabel = {
+  super_admin: "Super admin",
+  admin: "Admin",
+  moderator: "Moderator",
+};
+
+function UserForm({ onClose }) {
+  const [f, setF] = useState({ username: "", password: "", role: "moderator" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.username.trim() || f.password.length < 6) {
+      setErr("Username and a 6+ character password are required.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await createUser({
+        username: f.username.trim().toLowerCase(),
+        password: f.password,
+        role: f.role,
+      });
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <Field label="Username">
+        <input className={inputCls} value={f.username} onChange={set("username")} placeholder="jane" autoComplete="off" />
+      </Field>
+      <Field label="Temporary password (6+ chars)">
+        <input className={inputCls} value={f.password} onChange={set("password")} placeholder="••••••••" />
+      </Field>
+      <Field label="Role">
+        <select className={`${inputCls} text-white`} value={f.role} onChange={set("role")}>
+          <option value="moderator" className="text-black">Moderator — can only manage blog posts</option>
+          <option value="admin" className="text-black">Admin — can manage all content</option>
+        </select>
+      </Field>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Cancel</button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Creating…" : "Create member"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ResetForm({ user, onClose }) {
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (pw.length < 6) {
+      setErr("Password must be 6+ characters.");
+      return;
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await resetUserPassword(user.id, pw);
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <p className="text-sm text-haze">
+        Set a new password for <span className="text-white">{user.username}</span>.
+      </p>
+      <Field label="New password (6+ chars)">
+        <input className={inputCls} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" />
+      </Field>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Cancel</button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Saving…" : "Reset password"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function Team({ db }) {
+  const [creating, setCreating] = useState(false);
+  const [resetting, setResetting] = useState(null);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-haze">
+          {db.users.length} team member{db.users.length === 1 ? "" : "s"}
+        </p>
+        <button onClick={() => setCreating(true)} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white">
+          <HiPlus /> New member
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-line">
+        {db.users.map((u) => (
+          <div key={u.id} className="flex items-center justify-between gap-4 border-b border-line px-5 py-4 last:border-b-0 hover:bg-white/[0.015]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 font-display text-sm uppercase text-white">
+                {u.username.slice(0, 2)}
+              </span>
+              <div>
+                <h3 className="font-medium text-white">{u.username}</h3>
+                <span
+                  className={`text-xs ${
+                    u.role === "super_admin"
+                      ? "text-accent"
+                      : u.role === "admin"
+                      ? "text-accent-soft"
+                      : "text-haze"
+                  }`}
+                >
+                  {roleLabel[u.role]}
+                </span>
+              </div>
+            </div>
+            {u.role !== "super_admin" && (
+              <div className="flex shrink-0 gap-3 text-haze">
+                <button onClick={() => setResetting(u)} className="transition-colors hover:text-accent" title="Reset password">
+                  <HiOutlineKey />
+                </button>
+                <button onClick={() => deleteUser(u.id)} className="transition-colors hover:text-red-400" title="Remove">
+                  <HiOutlineTrash />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {creating && (
+        <Modal title="New team member" onClose={() => setCreating(false)}>
+          <UserForm onClose={() => setCreating(false)} />
+        </Modal>
+      )}
+      {resetting && (
+        <Modal title="Reset password" onClose={() => setResetting(null)}>
+          <ResetForm user={resetting} onClose={() => setResetting(null)} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Dashboard shell                                                     */
 /* ------------------------------------------------------------------ */
+const ADMIN = ["admin", "super_admin"];
+const ALL = ["moderator", "admin", "super_admin"];
+
 const tabs = [
-  { id: "overview", label: "Overview", icon: HiOutlineSquares2X2 },
-  { id: "analytics", label: "Analytics", icon: HiOutlineChartBarSquare },
-  { id: "registrations", label: "Registrations", icon: HiOutlineUsers },
-  { id: "projects", label: "Selected work", icon: HiOutlineBriefcase },
-  { id: "services", label: "Services", icon: HiOutlineWrenchScrewdriver },
-  { id: "posts", label: "Blog posts", icon: HiOutlineNewspaper },
-  { id: "faqs", label: "FAQ", icon: HiOutlineQuestionMarkCircle },
-  { id: "stats", label: "Stats", icon: HiOutlineHashtag },
+  { id: "overview", label: "Overview", icon: HiOutlineSquares2X2, roles: ADMIN },
+  { id: "analytics", label: "Analytics", icon: HiOutlineChartBarSquare, roles: ADMIN },
+  { id: "registrations", label: "Registrations", icon: HiOutlineUsers, roles: ADMIN },
+  { id: "projects", label: "Selected work", icon: HiOutlineBriefcase, roles: ADMIN },
+  { id: "services", label: "Services", icon: HiOutlineWrenchScrewdriver, roles: ADMIN },
+  { id: "posts", label: "Blog posts", icon: HiOutlineNewspaper, roles: ALL },
+  { id: "faqs", label: "FAQ", icon: HiOutlineQuestionMarkCircle, roles: ADMIN },
+  { id: "stats", label: "Stats", icon: HiOutlineHashtag, roles: ADMIN },
+  { id: "team", label: "Team", icon: HiOutlineUserGroup, roles: ["super_admin"] },
 ];
 
 export default function Admin() {
   const db = useDB();
-  const [tab, setTab] = useState("overview");
+  const role = db.auth.user?.role;
+  const visibleTabs = tabs.filter((t) => t.roles.includes(role));
+  const [tab, setTab] = useState("posts");
+
+  // Keep the active tab valid for the current role
+  useEffect(() => {
+    if (
+      db.auth.loggedIn &&
+      visibleTabs.length &&
+      !visibleTabs.some((t) => t.id === tab)
+    ) {
+      setTab(visibleTabs[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.auth.loggedIn, role]);
 
   if (!db.auth.loggedIn) return <Login />;
 
-  const active = tabs.find((t) => t.id === tab);
+  const active = visibleTabs.find((t) => t.id === tab) || visibleTabs[0];
 
   return (
     <div className="min-h-screen bg-ink text-white lg:flex">
@@ -1057,12 +1267,12 @@ export default function Admin() {
             </span>
           </Link>
           <span className="mt-1 hidden text-xs uppercase tracking-[0.2em] text-haze lg:block">
-            Admin console
+            {roleLabel[role] || "Console"}
           </span>
         </div>
 
         <nav className="flex gap-1 overflow-x-auto px-4 pb-4 lg:mt-4 lg:flex-col">
-          {tabs.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             return (
               <button
@@ -1082,9 +1292,20 @@ export default function Admin() {
         </nav>
 
         <div className="hidden p-4 lg:absolute lg:bottom-0 lg:block lg:w-64">
+          <div className="mb-2 flex items-center gap-3 rounded-xl border border-line px-4 py-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-xs uppercase text-white">
+              {(db.auth.user?.username || "?").slice(0, 2)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm text-white">
+                {db.auth.user?.username}
+              </p>
+              <p className="text-xs text-haze">{roleLabel[role]}</p>
+            </div>
+          </div>
           <Link
             to="/"
-            className="mb-2 flex items-center gap-2 rounded-xl px-4 py-3 text-sm text-haze transition-colors hover:bg-white/5 hover:text-white"
+            className="mb-1 flex items-center gap-2 rounded-xl px-4 py-3 text-sm text-haze transition-colors hover:bg-white/5 hover:text-white"
           >
             <HiArrowLeft /> View site
           </Link>
@@ -1102,10 +1323,12 @@ export default function Admin() {
         <header className="flex items-center justify-between border-b border-line px-6 py-6 md:px-10">
           <div>
             <h1 className="font-display text-2xl font-semibold tracking-tight md:text-3xl">
-              {active.label}
+              {active?.label}
             </h1>
             <p className="mt-1 text-sm text-haze">
-              Manage your studio content and leads.
+              {role === "moderator"
+                ? "Create and manage blog posts."
+                : "Manage your studio content and leads."}
             </p>
           </div>
           <button
@@ -1125,6 +1348,7 @@ export default function Admin() {
           {tab === "posts" && <Posts db={db} />}
           {tab === "faqs" && <Faqs db={db} />}
           {tab === "stats" && <Stats db={db} />}
+          {tab === "team" && <Team db={db} />}
         </div>
       </main>
     </div>
