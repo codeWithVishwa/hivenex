@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the Hivenex API (the Express backend in ./server).
+# Deploy the frontend separately (Vercel/Netlify/Render static) and build it
+# with VITE_API_URL pointing at this service's URL + /api.
+services:
+  - type: web
+    name: hivenex-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Paste your MongoDB Atlas SRV connection string in the dashboard
+      - key: MONGODB_URI
+        sync: false
+      # A strong random secret is generated for you
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPER_ADMIN_USERNAME
+        value: superadmin
+      # Set a strong password in the dashboard
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      # Your frontend origin(s), comma-separated (e.g. https://hivenex.vercel.app).
+      # Leave unset to allow any origin (fine — the API uses JWTs, not cookies).
+      - key: CLIENT_ORIGIN
+        sync: false

@@ -1,5 +1,17 @@
 import mongoose from "mongoose";
+import dns from "dns";
 import Service from "./models/Service.js";
+
+// Some local networks can't resolve MongoDB Atlas SRV records with their default
+// DNS. Public resolvers fix that locally. On Vercel the platform DNS already
+// works, and overriding it can break things — so only do this off-platform.
+if (!process.env.VERCEL) {
+  try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+  } catch {
+    /* ignore */
+  }
+}
 import Post from "./models/Post.js";
 import Project from "./models/Project.js";
 import FaqItem from "./models/FaqItem.js";
@@ -166,4 +178,19 @@ export async function connectDB(uri) {
   await mongoose.connect(uri);
   console.log("✅ MongoDB connected");
   await seedIfEmpty();
+}
+
+// Connect once and reuse the connection across serverless invocations.
+// The cached promise means we never open a second connection or re-run seeding
+// on a warm function instance.
+let readyPromise;
+export function ensureDB() {
+  if (!readyPromise) {
+    readyPromise = connectDB(process.env.MONGODB_URI).catch((err) => {
+      // allow a retry on the next request if the first attempt failed
+      readyPromise = undefined;
+      throw err;
+    });
+  }
+  return readyPromise;
 }
