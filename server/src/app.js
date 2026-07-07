@@ -20,11 +20,12 @@ import userRoutes from "./routes/users.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Builds the Express app. Shared by the local/Docker server (index.js) and the
- * Vercel serverless function (../../api/index.js).
+ * Builds the Express API app (used by index.js for every deploy target).
  *
- * @param {{ serveStatic?: boolean }} options - serve the built SPA (local prod
- *   only). On Vercel the platform serves static files, so leave this false.
+ * @param {{ serveStatic?: boolean }} options - also serve the built SPA from
+ *   ../../dist. True for single-service deploys (Docker / VPS) where the
+ *   frontend ships with the server; false for API-only hosts like Render where
+ *   the frontend is deployed separately.
  */
 export function createApp({ serveStatic = false } = {}) {
   const app = express();

@@ -1,4 +1,5 @@
-server/node_modules
+# Vercel builds only the frontend; the backend runs on Render.
+server
 node_modules
 dist
 .git
