@@ -1,6 +1,7 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import User from "../models/User.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -9,6 +10,19 @@ const router = Router();
 // Compared against when the username doesn't exist, so unknown-user and
 // wrong-password responses take the same time (no username enumeration).
 const DUMMY_HASH = bcrypt.hashSync("dummy-timing-equalizer", 12);
+
+// Brute-force guard for the two endpoints that verify a password: 5 FAILED
+// attempts per IP per 15 minutes. Successful requests are refunded
+// (skipSuccessfulRequests), so legitimate logins never eat into the quota.
+// The broader authLimiter in app.js still caps overall /api/auth traffic.
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many failed attempts, try again in 15 minutes." },
+});
 
 function signToken(user) {
   return jwt.sign(
@@ -19,7 +33,7 @@ function signToken(user) {
 }
 
 // POST /api/auth/login  { username, password }
-router.post("/login", async (req, res) => {
+router.post("/login", credentialLimiter, async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password required" });
@@ -36,7 +50,7 @@ router.post("/login", async (req, res) => {
 // PUT /api/auth/password  { currentPassword, newPassword } — change your own
 // password. This is the only way to rotate the super admin's password (the
 // users route deliberately refuses to touch super_admin accounts).
-router.put("/password", requireAuth, async (req, res) => {
+router.put("/password", credentialLimiter, requireAuth, async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: "Current and new password required" });

@@ -16,6 +16,9 @@ import faqRoutes from "./routes/faqs.js";
 import statRoutes from "./routes/stats.js";
 import analyticsRoutes from "./routes/analytics.js";
 import userRoutes from "./routes/users.js";
+import clientRoutes from "./routes/clients.js";
+import workRoutes from "./routes/work.js";
+import uploadRoutes from "./routes/uploads.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -86,6 +89,9 @@ export function createApp({ serveStatic = false } = {}) {
   app.use("/api/stats", statRoutes);
   app.use("/api/analytics", analyticsRoutes);
   app.use("/api/users", authLimiter, userRoutes);
+  app.use("/api/clients", clientRoutes);
+  app.use("/api/work", workRoutes);
+  app.use("/api/uploads", uploadRoutes);
 
   // JSON 404 for unknown API routes
   app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));

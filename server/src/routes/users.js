@@ -7,11 +7,16 @@ const router = Router();
 // Only the super admin can manage team members
 const superOnly = requireRole("super_admin");
 
-// List all users
-router.get("/", superOnly, async (_req, res) => {
-  const users = await User.find().sort({ createdAt: 1 });
-  res.json(users.map((u) => u.toSafeJSON()));
-});
+// List all users — admins also need this to assign todos to workers;
+// create/reset/delete below stay super-admin only.
+router.get(
+  "/",
+  requireRole("admin", "super_admin"),
+  async (_req, res) => {
+    const users = await User.find().sort({ createdAt: 1 });
+    res.json(users.map((u) => u.toSafeJSON()));
+  }
+);
 
 // Create an admin or moderator
 router.post("/", superOnly, async (req, res) => {
@@ -22,8 +27,10 @@ router.post("/", superOnly, async (req, res) => {
   if (password.length < 8) {
     return res.status(400).json({ error: "Password must be 8+ characters" });
   }
-  // super admins can only mint admins or moderators (not other super admins)
-  const safeRole = role === "admin" ? "admin" : "moderator";
+  // super admins can mint any role except another super admin
+  const safeRole = ["admin", "moderator", "worker"].includes(role)
+    ? role
+    : "moderator";
   if (!ROLES.includes(safeRole)) {
     return res.status(400).json({ error: "Invalid role" });
   }

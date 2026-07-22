@@ -20,6 +20,8 @@ let state = {
   stats: [],
   registrations: [],
   users: [],
+  clients: [],
+  work: [],
   auth: {
     loggedIn: !!localStorage.getItem(TOKEN_KEY),
     user: readStoredUser(),
@@ -114,6 +116,11 @@ async function loadRoleData() {
   if (isAdminish()) {
     await loadRegistrations();
     await loadUsers();
+    await loadClients();
+  }
+  // Workers get their assigned tasks; admins get everything
+  if (isAdminish() || state.auth.user?.role === "worker") {
+    await loadWork();
   }
 }
 
@@ -157,13 +164,15 @@ function doLogout() {
     auth: { loggedIn: false, user: null },
     registrations: [],
     users: [],
+    clients: [],
+    work: [],
   });
 }
 export const logout = doLogout;
 
-/* ---------- Users (super admin) ---------- */
+/* ---------- Users (admin list; super admin manages) ---------- */
 export async function loadUsers() {
-  if (state.auth.user?.role !== "super_admin") return;
+  if (!isAdminish()) return;
   try {
     const users = await api("/users", { auth: true });
     set({ users: users.map(norm) });
@@ -328,4 +337,149 @@ export function trackPageview(path) {
 
 export async function loadAnalytics() {
   return api("/analytics", { auth: true });
+}
+
+/* ---------- Clients (admin) ---------- */
+// Subdocuments (updates/todos) carry Mongo _ids too — normalize those as well.
+const normClient = (c) => ({ ...norm(c), updates: (c.updates || []).map(norm) });
+const normWork = (p) => ({ ...norm(p), todos: (p.todos || []).map(norm) });
+
+export async function loadClients() {
+  if (!isAdminish()) return;
+  try {
+    const clients = await api("/clients", { auth: true });
+    set({ clients: clients.map(normClient) });
+  } catch {
+    /* 401/403 handled elsewhere */
+  }
+}
+
+export async function saveClient(data) {
+  if (data.id) {
+    const updated = normClient(
+      await api(`/clients/${data.id}`, { method: "PUT", body: data, auth: true })
+    );
+    set({ clients: state.clients.map((c) => (c.id === data.id ? updated : c)) });
+  } else {
+    const created = normClient(
+      await api("/clients", { method: "POST", body: data, auth: true })
+    );
+    set({ clients: [created, ...state.clients] });
+  }
+}
+
+export async function deleteClient(id) {
+  await api(`/clients/${id}`, { method: "DELETE", auth: true });
+  set({ clients: state.clients.filter((c) => c.id !== id) });
+}
+
+export async function addClientUpdate(id, { text, image }) {
+  const updated = normClient(
+    await api(`/clients/${id}/updates`, {
+      method: "POST",
+      body: { text, image },
+      auth: true,
+    })
+  );
+  set({ clients: state.clients.map((c) => (c.id === id ? updated : c)) });
+  return updated;
+}
+
+export async function deleteClientUpdate(id, updateId) {
+  const updated = normClient(
+    await api(`/clients/${id}/updates/${updateId}`, {
+      method: "DELETE",
+      auth: true,
+    })
+  );
+  set({ clients: state.clients.map((c) => (c.id === id ? updated : c)) });
+}
+
+/* ---------- Work tracking (admin + worker) ---------- */
+export async function loadWork() {
+  try {
+    const work = await api("/work", { auth: true });
+    set({ work: work.map(normWork) });
+  } catch {
+    /* 401/403 handled elsewhere */
+  }
+}
+
+// Replace one project in the list with the fresh copy the API returned
+const swapWork = (updated) =>
+  set({ work: state.work.map((p) => (p.id === updated.id ? updated : p)) });
+
+export async function saveWorkProject(data) {
+  if (data.id) {
+    swapWork(
+      normWork(
+        await api(`/work/${data.id}`, { method: "PUT", body: data, auth: true })
+      )
+    );
+  } else {
+    const created = normWork(
+      await api("/work", { method: "POST", body: data, auth: true })
+    );
+    set({ work: [created, ...state.work] });
+  }
+}
+
+export async function deleteWorkProject(id) {
+  await api(`/work/${id}`, { method: "DELETE", auth: true });
+  set({ work: state.work.filter((p) => p.id !== id) });
+}
+
+export async function addTodo(projectId, { title, assignedTo }) {
+  swapWork(
+    normWork(
+      await api(`/work/${projectId}/todos`, {
+        method: "POST",
+        body: { title, assignedTo },
+        auth: true,
+      })
+    )
+  );
+}
+
+export async function updateTodo(projectId, todoId, patch) {
+  swapWork(
+    normWork(
+      await api(`/work/${projectId}/todos/${todoId}`, {
+        method: "PUT",
+        body: patch,
+        auth: true,
+      })
+    )
+  );
+}
+
+export async function deleteTodo(projectId, todoId) {
+  swapWork(
+    normWork(
+      await api(`/work/${projectId}/todos/${todoId}`, {
+        method: "DELETE",
+        auth: true,
+      })
+    )
+  );
+}
+
+/* ---------- Image upload (Cloudinary, signed by our API) ---------- */
+// The server only signs the request; the file goes straight from the browser
+// to Cloudinary. Throws "Image uploads not configured" when env is missing.
+export async function uploadImage(file) {
+  const sig = await api("/uploads/signature", { auth: true });
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("api_key", sig.apiKey);
+  fd.append("timestamp", sig.timestamp);
+  fd.append("folder", sig.folder);
+  fd.append("signature", sig.signature);
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`,
+    { method: "POST", body: fd }
+  );
+  if (!res.ok) throw new Error("Image upload failed");
+  const data = await res.json();
+  return data.secure_url;
 }

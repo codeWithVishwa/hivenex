@@ -20,6 +20,9 @@ import {
   HiXMark,
   HiOutlineArrowDownTray,
   HiStar,
+  HiOutlineBuildingOffice2,
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineChatBubbleOvalLeftEllipsis,
 } from "react-icons/hi2";
 import {
   useDB,
@@ -40,6 +43,16 @@ import {
   createUser,
   deleteUser,
   resetUserPassword,
+  saveClient,
+  deleteClient,
+  addClientUpdate,
+  deleteClientUpdate,
+  saveWorkProject,
+  deleteWorkProject,
+  addTodo,
+  updateTodo,
+  deleteTodo,
+  uploadImage,
 } from "../lib/store";
 
 /* ------------------------------------------------------------------ */
@@ -710,6 +723,207 @@ function RankBars({ title, rows, accent = "#8b5cf6" }) {
   );
 }
 
+/* Trend line chart — N same-unit series on one shared axis, with a
+   crosshair + tooltip. Colors validated for CVD on the dark surface. */
+function TrendChart({ label, series }) {
+  const [hover, setHover] = useState(null); // index into the day axis
+
+  const days = series[0]?.data || [];
+  const n = days.length;
+  const max = Math.max(1, ...series.flatMap((s) => s.data.map((d) => d.count)));
+
+  // Percent-space coordinates so the SVG can stretch with the card
+  const x = (i) => (n > 1 ? (i / (n - 1)) * 100 : 50);
+  const y = (c) => 100 - (c / max) * 92; // 8% headroom so peaks don't clip
+
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const i = Math.round(((e.clientX - r.left) / r.width) * (n - 1));
+    setHover(Math.max(0, Math.min(n - 1, i)));
+  };
+
+  return (
+    <div className="rounded-2xl border border-line bg-ink-soft p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="font-display text-lg font-medium">{label}</h3>
+        {/* legend — identity never rides on color alone; names are in ink */}
+        <div className="flex gap-4">
+          {series.map((s) => (
+            <span key={s.name} className="flex items-center gap-2 text-xs text-haze">
+              <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+              {s.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className="relative h-44 cursor-crosshair"
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        {/* recessive grid + axis labels */}
+        {[0, 50, 100].map((t) => (
+          <div key={t} className="absolute inset-x-0 border-t border-white/5" style={{ top: `${t}%` }} />
+        ))}
+        <span className="absolute -top-1 right-0 text-[10px] text-haze">{max}</span>
+        <span className="absolute bottom-0 right-0 text-[10px] text-haze">0</span>
+
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible">
+          {series.map((s) => (
+            <polyline
+              key={s.name}
+              points={s.data.map((d, i) => `${x(i)},${y(d.count)}`).join(" ")}
+              fill="none"
+              stroke={s.color}
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
+
+        {/* crosshair + hover markers + tooltip */}
+        {hover !== null && (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 w-px bg-white/20" style={{ left: `${x(hover)}%` }} />
+            {series.map((s) => (
+              <span
+                key={s.name}
+                className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink-soft"
+                style={{ left: `${x(hover)}%`, top: `${y(s.data[hover]?.count ?? 0)}%`, background: s.color }}
+              />
+            ))}
+            <div
+              className="pointer-events-none absolute z-10 -translate-y-full rounded-lg border border-line bg-black/85 px-3 py-2 text-[11px]"
+              style={{
+                left: `${x(hover)}%`, top: "0%",
+                transform: `translate(${x(hover) > 60 ? "-100%" : "8px"}, 0)`,
+              }}
+            >
+              <p className="mb-1 text-haze">{days[hover]?.date}</p>
+              {series.map((s) => (
+                <p key={s.name} className="flex items-center gap-2 text-white/90">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />
+                  {s.name}: {s.data[hover]?.count ?? 0}
+                </p>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-2 flex justify-between text-[10px] text-haze">
+        <span>{days[0]?.date.slice(5)}</span>
+        <span>{days[n - 1]?.date.slice(5)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* Donut chart — share of a whole. Top 4 categories keep their fixed hue
+   (order CVD-validated on dark); the rest fold into a gray "Other". */
+const DONUT_COLORS = ["#0d9488", "#8b5cf6", "#d97706", "#d63f9d"];
+const OTHER_COLOR = "#6b7280";
+const SURFACE = "#0c0c0e"; // matches bg-ink-soft; used for slice gaps
+
+function DonutChart({ label, rows }) {
+  const [hover, setHover] = useState(null);
+
+  // Fold everything past the 4th category into "Other"
+  const kept = rows.slice(0, 4).map((r, i) => ({ ...r, color: DONUT_COLORS[i] }));
+  const rest = rows.slice(4);
+  const otherTotal = rest.reduce((a, r) => a + r.count, 0);
+  const slices = otherTotal > 0
+    ? [...kept, { name: "Other", count: otherTotal, color: OTHER_COLOR }]
+    : kept;
+  const total = slices.reduce((a, s) => a + s.count, 0);
+
+  if (!total) {
+    return (
+      <div className="rounded-2xl border border-line bg-ink-soft p-6">
+        <h3 className="font-display text-lg font-medium">{label}</h3>
+        <p className="mt-5 text-sm text-haze">No data yet.</p>
+      </div>
+    );
+  }
+
+  // Build donut segment paths (percent-space, 100×100 viewBox)
+  const cx = 50, cy = 50, r0 = 26, r1 = 44;
+  const polar = (r, a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  // Each slice starts after the sum of everything before it (12 o'clock origin)
+  const before = (i) => slices.slice(0, i).reduce((a, s) => a + s.count, 0);
+  const segs = slices.map((s, i) => {
+    const sweep = Math.min((s.count / total) * Math.PI * 2, Math.PI * 2 - 1e-4);
+    const a0 = -Math.PI / 2 + (before(i) / total) * Math.PI * 2;
+    const a1 = a0 + sweep;
+    const large = sweep > Math.PI ? 1 : 0;
+    const [ax, ay] = polar(r1, a0), [bx, by] = polar(r1, a1);
+    const [cx2, cy2] = polar(r0, a1), [dx, dy] = polar(r0, a0);
+    return {
+      ...s,
+      path: `M${ax} ${ay} A${r1} ${r1} 0 ${large} 1 ${bx} ${by} L${cx2} ${cy2} A${r0} ${r0} 0 ${large} 0 ${dx} ${dy} Z`,
+    };
+  });
+
+  const active = hover !== null ? segs[hover] : null;
+
+  return (
+    <div className="rounded-2xl border border-line bg-ink-soft p-6">
+      <h3 className="font-display text-lg font-medium">{label}</h3>
+      <div className="mt-5 flex flex-wrap items-center gap-6">
+        <div className="relative h-40 w-40 shrink-0">
+          <svg viewBox="0 0 100 100" className="h-full w-full">
+            {segs.map((s, i) => (
+              <path
+                key={s.name}
+                d={s.path}
+                fill={s.color}
+                stroke={SURFACE}
+                strokeWidth="2"
+                opacity={hover === null || hover === i ? 1 : 0.35}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                className="cursor-pointer transition-opacity"
+              />
+            ))}
+          </svg>
+          {/* center: hovered slice, or the grand total */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className="font-display text-2xl font-semibold">
+              {active ? `${Math.round((active.count / total) * 100)}%` : total}
+            </span>
+            <span className="max-w-24 truncate text-[10px] text-haze">
+              {active ? active.name : "total"}
+            </span>
+          </div>
+        </div>
+
+        {/* legend carries identity + values — never color alone */}
+        <div className="min-w-0 flex-1 space-y-2">
+          {segs.map((s, i) => (
+            <div
+              key={s.name}
+              className={`flex items-center justify-between gap-3 rounded-lg px-2 py-1 text-sm transition-colors ${hover === i ? "bg-white/5" : ""}`}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: s.color }} />
+                <span className="truncate text-white/85">{s.name}</span>
+              </span>
+              <span className="shrink-0 text-haze">
+                {s.count} · {Math.round((s.count / total) * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Analytics() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -745,6 +959,19 @@ function Analytics() {
             <p className="mt-2 text-sm text-haze">{c.label}</p>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <TrendChart
+            label="14-day trend"
+            series={[
+              { name: "Page views", color: "#8b5cf6", data: data.viewsSeries },
+              { name: "Registrations", color: "#d63f9d", data: data.regsSeries },
+            ]}
+          />
+        </div>
+        <DonutChart label="Registrations by service" rows={data.topServices} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
@@ -1071,12 +1298,490 @@ function Stats({ db }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Clients manager — admin only                                        */
+/* ------------------------------------------------------------------ */
+const clientStatusMeta = {
+  lead: { label: "Lead", cls: "border-sky-500/30 bg-sky-500/10 text-sky-300" },
+  active: { label: "Active", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" },
+  on_hold: { label: "On hold", cls: "border-amber-500/30 bg-amber-500/10 text-amber-300" },
+  completed: { label: "Completed", cls: "border-accent/30 bg-accent/10 text-accent" },
+};
+
+function ClientForm({ initial, onClose }) {
+  const [f, setF] = useState({
+    name: initial?.name || "",
+    company: initial?.company || "",
+    email: initial?.email || "",
+    phone: initial?.phone || "",
+    status: initial?.status || "lead",
+    notes: initial?.notes || "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.name.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await saveClient({ ...initial, ...f });
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <Field label="Client name">
+        <input className={inputCls} value={f.name} onChange={set("name")} placeholder="Jane Cooper" />
+      </Field>
+      <Field label="Company">
+        <input className={inputCls} value={f.company} onChange={set("company")} placeholder="Acme Inc." />
+      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Email">
+          <input className={inputCls} value={f.email} onChange={set("email")} placeholder="jane@acme.com" />
+        </Field>
+        <Field label="Phone">
+          <input className={inputCls} value={f.phone} onChange={set("phone")} placeholder="+1 …" />
+        </Field>
+      </div>
+      <Field label="Status">
+        <select className={`${inputCls} text-white`} value={f.status} onChange={set("status")}>
+          {Object.entries(clientStatusMeta).map(([id, m]) => (
+            <option key={id} value={id} className="text-black">{m.label}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Notes">
+        <textarea rows={3} className={inputCls} value={f.notes} onChange={set("notes")} placeholder="Anything worth remembering about this client" />
+      </Field>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Cancel</button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Saving…" : initial ? "Save changes" : "Add client"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// Timeline of dated status updates for one client, plus a form to post one.
+// Image attachments upload straight to Cloudinary (if configured server-side).
+function ClientUpdates({ client, onClose }) {
+  const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!text.trim() && !file) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const image = file ? await uploadImage(file) : "";
+      await addClientUpdate(client.id, { text, image });
+      setText("");
+      setFile(null);
+      e.target.reset?.();
+    } catch (e2) {
+      setErr(e2.message);
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={submit} className="space-y-4">
+        <textarea
+          rows={3}
+          className={inputCls}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={`New status update for ${client.name}…`}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-haze hover:text-white">
+            <HiOutlineArrowDownTray className="rotate-180 text-base" />
+            {file ? file.name : "Attach image"}
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </label>
+          <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+            {busy ? "Posting…" : "Post update"}
+          </button>
+        </div>
+        {err && <p className="text-xs text-red-400">{err}</p>}
+      </form>
+
+      <div className="max-h-80 space-y-4 overflow-y-auto pr-1">
+        {(client.updates || []).length === 0 && (
+          <p className="text-sm text-haze">No updates yet.</p>
+        )}
+        {(client.updates || []).map((u) => (
+          <div key={u.id} className="rounded-2xl border border-line bg-black/30 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                {u.text && <p className="text-sm text-white/85">{u.text}</p>}
+                {u.image && (
+                  <a href={u.image} target="_blank" rel="noreferrer">
+                    <img src={u.image} alt="" className="mt-2 max-h-40 rounded-xl border border-line" />
+                  </a>
+                )}
+                <p className="mt-2 text-xs text-haze">
+                  {u.by || "—"} · {u.createdAt ? new Date(u.createdAt).toLocaleString() : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => deleteClientUpdate(client.id, u.id)}
+                className="shrink-0 text-haze transition-colors hover:text-red-400"
+                title="Delete update"
+              >
+                <HiOutlineTrash />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Close</button>
+      </div>
+    </div>
+  );
+}
+
+function ClientsTab({ db }) {
+  const [editing, setEditing] = useState(null);
+  const [updatesFor, setUpdatesFor] = useState(null);
+
+  // Re-read from the store so the modal shows updates the moment they post
+  const liveUpdates =
+    updatesFor && (db.clients.find((c) => c.id === updatesFor.id) || updatesFor);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-haze">{db.clients.length} clients</p>
+        <button onClick={() => setEditing("new")} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white">
+          <HiPlus /> New client
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {db.clients.map((c) => {
+          const meta = clientStatusMeta[c.status] || clientStatusMeta.lead;
+          return (
+            <div key={c.id} className="rounded-2xl border border-line bg-ink-soft p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-display text-lg font-medium">{c.name}</h3>
+                    <span className={`rounded-full border px-2.5 py-0.5 text-xs ${meta.cls}`}>{meta.label}</span>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-haze">
+                    {[c.company, c.email, c.phone].filter(Boolean).join(" · ") || "—"}
+                  </p>
+                  {c.updates?.[0] && (
+                    <p className="mt-3 line-clamp-2 text-sm text-white/70">
+                      {c.updates[0].text || "📷 Image update"}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2 text-haze">
+                  <button onClick={() => setUpdatesFor(c)} className="transition-colors hover:text-accent" title="Status updates">
+                    <HiOutlineChatBubbleOvalLeftEllipsis />
+                  </button>
+                  <button onClick={() => setEditing(c)} className="transition-colors hover:text-accent" title="Edit">
+                    <HiOutlinePencilSquare />
+                  </button>
+                  <button onClick={() => deleteClient(c.id)} className="transition-colors hover:text-red-400" title="Delete">
+                    <HiOutlineTrash />
+                  </button>
+                </div>
+              </div>
+              <p className="mt-3 text-xs text-haze">
+                {(c.updates || []).length} update{(c.updates || []).length === 1 ? "" : "s"}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {editing && (
+        <Modal title={editing === "new" ? "New client" : "Edit client"} onClose={() => setEditing(null)}>
+          <ClientForm initial={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
+        </Modal>
+      )}
+      {liveUpdates && (
+        <Modal title={`Updates — ${liveUpdates.name}`} onClose={() => setUpdatesFor(null)}>
+          <ClientUpdates client={liveUpdates} onClose={() => setUpdatesFor(null)} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Work tracking — admin manages, workers update their own tasks       */
+/* ------------------------------------------------------------------ */
+const workStatusMeta = {
+  planned: { label: "Planned", cls: "border-sky-500/30 bg-sky-500/10 text-sky-300" },
+  in_progress: { label: "In progress", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" },
+  on_hold: { label: "On hold", cls: "border-amber-500/30 bg-amber-500/10 text-amber-300" },
+  completed: { label: "Completed", cls: "border-accent/30 bg-accent/10 text-accent" },
+};
+
+const todoStatusLabel = { todo: "To do", in_progress: "In progress", done: "Done" };
+
+function WorkProjectForm({ initial, clients, onClose }) {
+  const [f, setF] = useState({
+    name: initial?.name || "",
+    client: initial?.client?._id || initial?.client?.id || initial?.client || "",
+    status: initial?.status || "planned",
+    deadline: initial?.deadline || "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!f.name.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await saveWorkProject({ ...(initial?.id ? { id: initial.id } : {}), ...f });
+      onClose();
+    } catch (e2) {
+      setErr(e2.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      <Field label="Project name">
+        <input className={inputCls} value={f.name} onChange={set("name")} placeholder="Acme website rebuild" />
+      </Field>
+      <Field label="Client">
+        <select className={`${inputCls} text-white`} value={f.client} onChange={set("client")}>
+          <option value="" className="text-black">— No client —</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id} className="text-black">{c.name}</option>
+          ))}
+        </select>
+      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Status">
+          <select className={`${inputCls} text-white`} value={f.status} onChange={set("status")}>
+            {Object.entries(workStatusMeta).map(([id, m]) => (
+              <option key={id} value={id} className="text-black">{m.label}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Deadline">
+          <input className={inputCls} value={f.deadline} onChange={set("deadline")} placeholder="e.g. Aug 30" />
+        </Field>
+      </div>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onClose} className="rounded-xl border border-line px-5 py-2.5 text-sm text-haze hover:text-white">Cancel</button>
+        <button type="submit" disabled={busy} className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+          {busy ? "Saving…" : initial ? "Save changes" : "Add project"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TodoRow({ project, todo, isAdmin, users }) {
+  const assigneeId = todo.assignedTo?._id || todo.assignedTo?.id || "";
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-black/30 px-4 py-3">
+      <select
+        value={todo.status}
+        onChange={(e) => updateTodo(project.id, todo.id, { status: e.target.value })}
+        className="rounded-lg border border-line bg-black/40 px-2 py-1.5 text-xs text-white outline-none focus:border-accent"
+      >
+        {Object.entries(todoStatusLabel).map(([id, label]) => (
+          <option key={id} value={id} className="text-black">{label}</option>
+        ))}
+      </select>
+      <span className={`min-w-0 flex-1 truncate text-sm ${todo.status === "done" ? "text-haze line-through" : "text-white/85"}`}>
+        {todo.title}
+      </span>
+      {isAdmin ? (
+        <>
+          <select
+            value={assigneeId}
+            onChange={(e) => updateTodo(project.id, todo.id, { assignedTo: e.target.value || null })}
+            className="rounded-lg border border-line bg-black/40 px-2 py-1.5 text-xs text-haze outline-none focus:border-accent"
+            title="Assignee"
+          >
+            <option value="" className="text-black">Unassigned</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id} className="text-black">{u.username}</option>
+            ))}
+          </select>
+          <button onClick={() => deleteTodo(project.id, todo.id)} className="text-haze transition-colors hover:text-red-400" title="Delete task">
+            <HiOutlineTrash />
+          </button>
+        </>
+      ) : (
+        todo.assignedTo?.username && (
+          <span className="text-xs text-haze">@{todo.assignedTo.username}</span>
+        )
+      )}
+    </div>
+  );
+}
+
+// Inline "add a task" row under each project (admin only)
+function AddTodo({ project, users }) {
+  const [title, setTitle] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true);
+    try {
+      await addTodo(project.id, { title, assignedTo: assignedTo || null });
+      setTitle("");
+    } catch {
+      /* surfaced by the next load */
+    }
+    setBusy(false);
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-3 flex flex-wrap items-center gap-2">
+      <input
+        className="min-w-0 flex-1 rounded-lg border border-line bg-black/40 px-3 py-2 text-sm text-white placeholder-white/25 outline-none focus:border-accent"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Add a task…"
+      />
+      <select
+        value={assignedTo}
+        onChange={(e) => setAssignedTo(e.target.value)}
+        className="rounded-lg border border-line bg-black/40 px-2 py-2 text-xs text-haze outline-none focus:border-accent"
+      >
+        <option value="" className="text-black">Unassigned</option>
+        {users.map((u) => (
+          <option key={u.id} value={u.id} className="text-black">{u.username}</option>
+        ))}
+      </select>
+      <button type="submit" disabled={busy} className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-60">
+        <HiPlus />
+      </button>
+    </form>
+  );
+}
+
+function WorkTab({ db }) {
+  const isAdmin = ADMIN.includes(db.auth.user?.role);
+  const [editing, setEditing] = useState(null);
+
+  return (
+    <div>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-haze">
+          {db.work.length} project{db.work.length === 1 ? "" : "s"}
+          {!isAdmin && " with tasks assigned to you"}
+        </p>
+        {isAdmin && (
+          <button onClick={() => setEditing("new")} className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-white">
+            <HiPlus /> New project
+          </button>
+        )}
+      </div>
+
+      {db.work.length === 0 && (
+        <p className="text-sm text-haze">
+          {isAdmin ? "No internal projects yet — create one to start tracking work." : "Nothing assigned to you right now."}
+        </p>
+      )}
+
+      <div className="space-y-5">
+        {db.work.map((p) => {
+          const meta = workStatusMeta[p.status] || workStatusMeta.planned;
+          const done = p.todos.filter((t) => t.status === "done").length;
+          return (
+            <div key={p.id} className="rounded-2xl border border-line bg-ink-soft p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-display text-lg font-medium">{p.name}</h3>
+                    <span className={`rounded-full border px-2.5 py-0.5 text-xs ${meta.cls}`}>{meta.label}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-haze">
+                    {[p.client?.name && `Client: ${p.client.name}`, p.deadline && `Due: ${p.deadline}`]
+                      .filter(Boolean)
+                      .join(" · ") || "—"}
+                    {p.todos.length > 0 && ` · ${done}/${p.todos.length} done`}
+                  </p>
+                </div>
+                {isAdmin && (
+                  <div className="flex shrink-0 gap-2 text-haze">
+                    <button onClick={() => setEditing(p)} className="transition-colors hover:text-accent" title="Edit project">
+                      <HiOutlinePencilSquare />
+                    </button>
+                    <button onClick={() => deleteWorkProject(p.id)} className="transition-colors hover:text-red-400" title="Delete project">
+                      <HiOutlineTrash />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 space-y-2">
+                {p.todos.map((t) => (
+                  <TodoRow key={t.id} project={p} todo={t} isAdmin={isAdmin} users={db.users} />
+                ))}
+                {p.todos.length === 0 && (
+                  <p className="text-xs text-haze">No tasks yet.</p>
+                )}
+              </div>
+
+              {isAdmin && <AddTodo project={p} users={db.users} />}
+            </div>
+          );
+        })}
+      </div>
+
+      {editing && (
+        <Modal title={editing === "new" ? "New internal project" : "Edit project"} onClose={() => setEditing(null)}>
+          <WorkProjectForm
+            initial={editing === "new" ? null : editing}
+            clients={db.clients}
+            onClose={() => setEditing(null)}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Team (users) manager — super admin only                             */
 /* ------------------------------------------------------------------ */
 const roleLabel = {
   super_admin: "Super admin",
   admin: "Admin",
   moderator: "Moderator",
+  worker: "Worker",
 };
 
 function UserForm({ onClose }) {
@@ -1118,6 +1823,7 @@ function UserForm({ onClose }) {
         <select className={`${inputCls} text-white`} value={f.role} onChange={set("role")}>
           <option value="moderator" className="text-black">Moderator — can only manage blog posts</option>
           <option value="admin" className="text-black">Admin — can manage all content</option>
+          <option value="worker" className="text-black">Worker — sees and updates only their assigned tasks</option>
         </select>
       </Field>
       {err && <p className="text-xs text-red-400">{err}</p>}
@@ -1252,6 +1958,8 @@ const tabs = [
   { id: "posts", label: "Blog posts", icon: HiOutlineNewspaper, roles: ALL },
   { id: "faqs", label: "FAQ", icon: HiOutlineQuestionMarkCircle, roles: ADMIN },
   { id: "stats", label: "Stats", icon: HiOutlineHashtag, roles: ADMIN },
+  { id: "clients", label: "Clients", icon: HiOutlineBuildingOffice2, roles: ADMIN },
+  { id: "work", label: "Work tracking", icon: HiOutlineClipboardDocumentCheck, roles: [...ADMIN, "worker"] },
   { id: "team", label: "Team", icon: HiOutlineUserGroup, roles: ["super_admin"] },
 ];
 
@@ -1350,7 +2058,9 @@ export default function Admin() {
             <p className="mt-1 text-sm text-haze">
               {role === "moderator"
                 ? "Create and manage blog posts."
-                : "Manage your studio content and leads."}
+                : role === "worker"
+                  ? "Update the status of your assigned tasks."
+                  : "Manage your studio content and leads."}
             </p>
           </div>
           <button
@@ -1370,6 +2080,8 @@ export default function Admin() {
           {tab === "posts" && <Posts db={db} />}
           {tab === "faqs" && <Faqs db={db} />}
           {tab === "stats" && <Stats db={db} />}
+          {tab === "clients" && <ClientsTab db={db} />}
+          {tab === "work" && <WorkTab db={db} />}
           {tab === "team" && <Team db={db} />}
         </div>
       </main>
