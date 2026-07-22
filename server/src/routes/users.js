@@ -19,8 +19,8 @@ router.post("/", superOnly, async (req, res) => {
   if (!username?.trim() || !password) {
     return res.status(400).json({ error: "Username and password required" });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Password must be 6+ characters" });
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Password must be 8+ characters" });
   }
   // super admins can only mint admins or moderators (not other super admins)
   const safeRole = role === "admin" ? "admin" : "moderator";
@@ -46,8 +46,8 @@ router.post("/", superOnly, async (req, res) => {
 // Reset a member's password
 router.put("/:id/password", superOnly, async (req, res) => {
   const { password } = req.body || {};
-  if (!password || password.length < 6) {
-    return res.status(400).json({ error: "Password must be 6+ characters" });
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: "Password must be 8+ characters" });
   }
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: "Not found" });

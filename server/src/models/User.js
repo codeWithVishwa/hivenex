@@ -33,7 +33,7 @@ userSchema.methods.toSafeJSON = function () {
 };
 
 userSchema.statics.hashPassword = function (password) {
-  return bcrypt.hash(password, 10);
+  return bcrypt.hash(password, 12);
 };
 
 export default mongoose.model("User", userSchema);

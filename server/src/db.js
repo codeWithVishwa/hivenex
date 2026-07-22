@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dns from "dns";
+import crypto from "crypto";
 import Service from "./models/Service.js";
 
 // Some local networks can't resolve MongoDB Atlas SRV records with their default
@@ -160,10 +161,17 @@ export async function seedIfEmpty() {
     const username = (
       process.env.SUPER_ADMIN_USERNAME || "superadmin"
     ).toLowerCase();
-    const password =
-      process.env.SUPER_ADMIN_PASSWORD ||
-      process.env.ADMIN_PASSWORD ||
-      "admin123";
+    // Never fall back to a guessable default. Without an env password we mint
+    // a random one and print it exactly once — set SUPER_ADMIN_PASSWORD to
+    // control it instead.
+    let password =
+      process.env.SUPER_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+    if (!password) {
+      password = crypto.randomBytes(12).toString("base64url");
+      console.log(
+        `🔐 No SUPER_ADMIN_PASSWORD set — generated one-time password for "${username}": ${password}`
+      );
+    }
     await User.create({
       username,
       passwordHash: await User.hashPassword(password),
