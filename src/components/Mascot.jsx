@@ -55,7 +55,7 @@ export default function Mascot({ className = "" }) {
           transition={{ duration: 0.25 }}
           className="pointer-events-none absolute -top-10 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/15 bg-black/70 px-3 py-1 text-xs font-medium text-white backdrop-blur-md"
         >
-          Hi, I'm Nova 👋
+          Hi,there! I'm Hive 👋
         </motion.div>
 
         {/* antenna */}
