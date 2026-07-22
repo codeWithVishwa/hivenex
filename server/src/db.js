@@ -180,9 +180,8 @@ export async function connectDB(uri) {
   await seedIfEmpty();
 }
 
-// Connect once and reuse the connection across serverless invocations.
-// The cached promise means we never open a second connection or re-run seeding
-// on a warm function instance.
+// Connect once and reuse the cached connection. The promise means we never open
+// a second connection or re-run seeding, and routes can lazily await it.
 let readyPromise;
 export function ensureDB() {
   if (!readyPromise) {

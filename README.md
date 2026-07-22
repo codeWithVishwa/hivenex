@@ -91,44 +91,11 @@ docker build -t hivenex .
 docker run -p 5000:5000 --env-file server/.env hivenex
 ```
 
-### Deploy to Vercel (recommended)
+### Deploy — frontend on Vercel + backend on Render
 
-The API runs as a **serverless function** (`api/[...path].js`, a catch-all that
-wraps the Express app) and the frontend is served as static files — all from
-this one repo. Config lives in [`vercel.json`](vercel.json).
-
-**1. Push to GitHub**, then in Vercel: **Add New → Project → import the repo.**
-The framework auto-detects as Vite; leave the defaults (build `vite build`,
-output `dist`). `vercel.json` handles routing:
-- `/api/*` → the serverless Express function
-- everything else → `index.html` (SPA), with static assets served directly
-
-**2. Add Environment Variables** (Project → Settings → Environment Variables):
-
-| Key | Value |
-| --- | ----- |
-| `MONGODB_URI` | Your MongoDB **Atlas** SRV connection string |
-| `JWT_SECRET` | A long random string |
-| `SUPER_ADMIN_USERNAME` | e.g. `superadmin` |
-| `SUPER_ADMIN_PASSWORD` | A strong password |
-| `CLIENT_ORIGIN` | *(optional — same-origin, so usually unneeded)* |
-
-**3. MongoDB Atlas → Network Access:** allow `0.0.0.0/0` (Vercel functions use
-dynamic IPs). Without this the function can't reach the database.
-
-**4. Deploy.** On first request the DB connects (cached across warm
-invocations) and seeds default content + the super admin. Visit `/admin`.
-
-Or via CLI: `npm i -g vercel` → `vercel` (preview) → `vercel --prod`.
-
-> Note: local dev/Docker still use `server/` with its own `package.json`. The
-> backend deps are **also** in the root `package.json` so Vercel installs them
-> for the function — keep the two in sync if you upgrade.
-
-### Split deploy — backend on Render, frontend on Vercel/Netlify
-
-The API and the site live on **different origins**. There's a
-[`render.yaml`](render.yaml) Blueprint for the backend.
+The frontend is a **static SPA on Vercel** and the API is a **web service on
+Render**; they live on different origins. Configs: [`vercel.json`](vercel.json)
+(static + SPA rewrite) and [`render.yaml`](render.yaml) (backend Blueprint).
 
 **Backend on Render** (New → Blueprint, or New → Web Service):
 
@@ -144,23 +111,22 @@ Render provides `PORT` automatically. The server detects there's no frontend
 build present and runs **API-only** (root `/` returns a JSON health payload).
 On MongoDB Atlas, allow Render's outbound IPs (or `0.0.0.0/0`).
 
-**Frontend** (Vercel / Netlify / Render static site) — build it pointing at the
-Render API by setting **one build-time env var**:
+**Frontend on Vercel** — Add New → Project → import the repo (auto-detects
+Vite; `vercel.json` serves the SPA). Add **one env var** so the app calls
+Render instead of its own origin:
 
 ```
 VITE_API_URL=https://<your-service>.onrender.com/api
 ```
 
-Then set **`CLIENT_ORIGIN`** on the Render service to your frontend URL
-(comma-separate multiples). Leaving it unset allows any origin — safe here since
-the API authenticates with JWTs (not cookies), but setting it is tidier.
+Redeploy after setting it (Vite bakes env vars in at build time). Then set
+**`CLIENT_ORIGIN`** on the Render service to your Vercel URL (comma-separate
+multiples). Leaving it unset allows any origin — safe here since the API
+authenticates with JWTs (not cookies), but setting it is tidier.
 
 > On the **free** Render plan the service sleeps after inactivity, so the first
-> request after idle takes ~50s to cold-start.
->
-> If you're already deploying the whole thing on Vercel (previous section), you
-> don't need Render — pick one. With Render as the backend, the Vercel `/api`
-> function simply goes unused.
+> request after idle takes ~50s to cold-start (and triggers one-time seeding of
+> default content + the super admin).
 
 ### Hardening included
 
