@@ -1087,8 +1087,8 @@ function UserForm({ onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!f.username.trim() || f.password.length < 6) {
-      setErr("Username and a 6+ character password are required.");
+    if (!f.username.trim() || f.password.length < 8) {
+      setErr("Username and an 8+ character password are required.");
       return;
     }
     setBusy(true);
@@ -1111,7 +1111,7 @@ function UserForm({ onClose }) {
       <Field label="Username">
         <input className={inputCls} value={f.username} onChange={set("username")} placeholder="jane" autoComplete="off" />
       </Field>
-      <Field label="Temporary password (6+ chars)">
+      <Field label="Temporary password (8+ chars)">
         <input className={inputCls} value={f.password} onChange={set("password")} placeholder="••••••••" />
       </Field>
       <Field label="Role">
@@ -1138,8 +1138,8 @@ function ResetForm({ user, onClose }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (pw.length < 6) {
-      setErr("Password must be 6+ characters.");
+    if (pw.length < 8) {
+      setErr("Password must be 8+ characters.");
       return;
     }
     setBusy(true);
@@ -1158,7 +1158,7 @@ function ResetForm({ user, onClose }) {
       <p className="text-sm text-haze">
         Set a new password for <span className="text-white">{user.username}</span>.
       </p>
-      <Field label="New password (6+ chars)">
+      <Field label="New password (8+ chars)">
         <input className={inputCls} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" />
       </Field>
       {err && <p className="text-xs text-red-400">{err}</p>}
