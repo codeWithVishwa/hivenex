@@ -192,6 +192,53 @@ const inputCls =
 const labelCls =
   "mb-1.5 block text-xs uppercase tracking-[0.15em] text-haze";
 
+// Cover-image picker: uploads to Cloudinary (signed by our API) and stores
+// the delivered URL. Shows "not configured" if the server has no Cloudinary
+// env — text-only content keeps working either way.
+function ImageField({ label = "Cover image (optional)", value, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setErr("");
+    try {
+      onChange(await uploadImage(file));
+    } catch (e2) {
+      setErr(e2.message);
+    }
+    setBusy(false);
+    e.target.value = "";
+  };
+
+  return (
+    <Field label={label}>
+      {value ? (
+        <div className="relative mt-1 overflow-hidden rounded-xl border border-line">
+          <img src={value} alt="" className="max-h-40 w-full object-cover" />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute right-2 top-2 rounded-full border border-line bg-black/70 p-1.5 text-haze transition-colors hover:text-red-400"
+            title="Remove image"
+          >
+            <HiXMark />
+          </button>
+        </div>
+      ) : (
+        <label className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-black/40 px-4 py-6 text-sm text-haze transition-colors hover:border-accent/50 hover:text-white">
+          <HiOutlineArrowDownTray className="rotate-180" />
+          {busy ? "Uploading…" : "Upload image"}
+          <input type="file" accept="image/*" className="hidden" onChange={pick} disabled={busy} />
+        </label>
+      )}
+      {err && <p className="mt-2 text-xs text-red-400">{err}</p>}
+    </Field>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <div>
@@ -535,6 +582,7 @@ function PostForm({ initial, onClose }) {
     date: initial?.date || new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
     read: initial?.read || "5 min read",
     featured: initial?.featured || false,
+    image: initial?.image || "",
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -570,6 +618,7 @@ function PostForm({ initial, onClose }) {
       <Field label="Date">
         <input className={inputCls} value={f.date} onChange={set("date")} placeholder="Jun 12, 2026" />
       </Field>
+      <ImageField value={f.image} onChange={(url) => setF((p) => ({ ...p, image: url }))} />
       <Field label="Excerpt">
         <textarea className={`${inputCls} min-h-20 resize-none`} value={f.excerpt} onChange={set("excerpt")} placeholder="Short summary shown on cards…" />
       </Field>
@@ -998,6 +1047,7 @@ function ProjectForm({ initial, onClose }) {
     accent: initial?.accent || "#8b5cf6",
     url: initial?.url || "",
     order: initial?.order ?? 0,
+    image: initial?.image || "",
     tagline: initial?.tagline || "",
     overview: initial?.overview || "",
     challenge: initial?.challenge || "",
@@ -1047,6 +1097,7 @@ function ProjectForm({ initial, onClose }) {
           <input className={inputCls} value={f.accent} onChange={set("accent")} placeholder="#8b5cf6" />
         </div>
       </Field>
+      <ImageField value={f.image} onChange={(url) => setF((p) => ({ ...p, image: url }))} />
 
       {/* Case-study detail — all optional; shown on /work/:id */}
       <Field label="Tagline (optional)">

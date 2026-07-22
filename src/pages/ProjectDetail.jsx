@@ -151,6 +151,14 @@ export default function ProjectDetail() {
                 </a>
               )}
 
+              {project.image && (
+                <img
+                  src={project.image}
+                  alt={project.name}
+                  className="mt-10 w-full rounded-3xl border border-line"
+                />
+              )}
+
               {/* overview */}
               {project.overview && (
                 <div className="mt-12 space-y-5 text-[1.05rem] leading-relaxed text-white/75">

@@ -249,6 +249,7 @@ export async function savePost(data) {
     date: data.date,
     read: data.read,
     featured: !!data.featured,
+    image: data.image || "",
   };
 
   if (data.id) {

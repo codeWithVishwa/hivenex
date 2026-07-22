@@ -64,6 +64,14 @@ export default function Blog() {
             className="group flex flex-col overflow-hidden rounded-3xl border border-line"
           >
             <div className="relative aspect-16/10 bg-gradient-to-br from-[#2a1030] via-[#160a2e] to-[#d63f9d]/30">
+              {/* uploaded cover image (falls back to the gradient) */}
+              {featured.image && (
+                <img
+                  src={featured.image}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+              )}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.06),transparent_50%)]" />
               <span className="absolute left-6 top-6 rounded-full bg-accent px-3 py-1 text-xs font-medium text-white">
                 Featured

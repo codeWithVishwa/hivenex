@@ -91,6 +91,14 @@ export default function BlogPost() {
               </p>
             )}
 
+            {post.image && (
+              <img
+                src={post.image}
+                alt=""
+                className="mt-8 w-full rounded-3xl border border-line"
+              />
+            )}
+
             <div className="my-10 h-px w-full bg-line" />
 
             <div className="space-y-5 text-[1.05rem] leading-relaxed text-haze">

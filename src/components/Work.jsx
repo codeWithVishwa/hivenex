@@ -66,6 +66,15 @@ function ProjectCard({ project, index }) {
           backgroundImage: `linear-gradient(135deg, #2a1030 0%, #160a2e 55%, ${project.accent}4d 100%)`,
         }}
       >
+        {/* uploaded cover image (falls back to the accent gradient) */}
+        {project.image && (
+          <img
+            src={project.image}
+            alt={project.name}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+        )}
+
         {/* cursor spotlight */}
         <motion.div
           className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -74,18 +83,20 @@ function ProjectCard({ project, index }) {
         {/* soft radial */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(255,255,255,0.06),transparent_50%)]" />
 
-        {/* parallax title watermark */}
-        <motion.div
-          style={{ x: wmX, y: wmY }}
-          className="absolute inset-0 flex items-center justify-center"
-        >
-          <span
-            className="font-display text-7xl font-bold opacity-[0.09] transition-opacity duration-500 group-hover:opacity-25 md:text-8xl"
-            style={{ color: project.accent }}
+        {/* parallax title watermark — only over the gradient, never a photo */}
+        {!project.image && (
+          <motion.div
+            style={{ x: wmX, y: wmY }}
+            className="absolute inset-0 flex items-center justify-center"
           >
-            {project.name.split(" ")[0]}
-          </span>
-        </motion.div>
+            <span
+              className="font-display text-7xl font-bold opacity-[0.09] transition-opacity duration-500 group-hover:opacity-25 md:text-8xl"
+              style={{ color: project.accent }}
+            >
+              {project.name.split(" ")[0]}
+            </span>
+          </motion.div>
+        )}
 
         {/* arrow badge */}
         <div className="absolute right-5 top-5 flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-black/30 backdrop-blur-md transition-all duration-500 group-hover:scale-110 group-hover:border-transparent group-hover:bg-white group-hover:text-black">
