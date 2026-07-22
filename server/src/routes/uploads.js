@@ -2,7 +2,8 @@ import { Router } from "express";
 import crypto from "crypto";
 import { requireRole } from "../middleware/auth.js";
 
-const adminOnly = requireRole("admin", "super_admin");
+// Moderators manage blog posts, so they can sign uploads too.
+const canUpload = requireRole("moderator", "admin", "super_admin");
 
 const router = Router();
 
@@ -11,7 +12,7 @@ const router = Router();
 // body limit and serverless disk limits); we only vouch for the request.
 // Returns 501 when Cloudinary env vars aren't configured, which the UI
 // treats as "image uploads unavailable".
-router.get("/signature", adminOnly, (_req, res) => {
+router.get("/signature", canUpload, (_req, res) => {
   const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } =
     process.env;
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {

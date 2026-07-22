@@ -9,6 +9,7 @@ const postSchema = new mongoose.Schema(
     date: { type: String, default: "" },
     read: { type: String, default: "5 min read" },
     featured: { type: Boolean, default: false },
+    image: { type: String, default: "" }, // Cloudinary URL (cover image)
     gradient: {
       type: String,
       default: "from-[#2a1030] via-[#160a2e] to-[#d63f9d]/30",
