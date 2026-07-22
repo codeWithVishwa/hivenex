@@ -302,6 +302,15 @@ export async function fetchPost(id) {
   return norm(await api(`/posts/${id}`));
 }
 
+// Fetch a single project (used by the case-study page on direct navigation).
+// The public list already carries every field, so a hit in the store is
+// complete; only a cold/direct load needs the network.
+export async function fetchProject(id) {
+  const inStore = state.projects.find((p) => p.id === id);
+  if (inStore && inStore.overview !== undefined) return inStore;
+  return norm(await api(`/projects/${id}`));
+}
+
 /* ---------- Analytics ---------- */
 export function trackPageview(path) {
   // fire-and-forget; never blocks or throws

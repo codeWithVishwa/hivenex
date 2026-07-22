@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import {
   motion,
   useMotionValue,
@@ -11,6 +12,10 @@ import { Reveal, TextReveal } from "./ui/Reveal";
 import { useDB } from "../lib/store";
 
 const spring = { stiffness: 150, damping: 18, mass: 0.4 };
+
+// Link that also accepts framer-motion props, so the card keeps its tilt
+// animation while navigating client-side to the case-study page.
+const MotionLink = motion.create(Link);
 
 function ProjectCard({ project, index }) {
   const ref = useRef(null);
@@ -43,10 +48,8 @@ function ProjectCard({ project, index }) {
   };
 
   return (
-    <motion.a
-      href={project.url || "#"}
-      target={project.url && project.url !== "#" ? "_blank" : undefined}
-      rel="noreferrer"
+    <MotionLink
+      to={`/work/${project.id}`}
       ref={ref}
       onMouseMove={onMove}
       onMouseLeave={reset}
@@ -115,7 +118,7 @@ function ProjectCard({ project, index }) {
         className="absolute bottom-0 left-0 h-0.5 w-0 rounded-full transition-all duration-500 group-hover:w-full"
         style={{ background: project.accent }}
       />
-    </motion.a>
+    </MotionLink>
   );
 }
 

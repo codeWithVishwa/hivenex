@@ -771,6 +771,11 @@ function ProjectForm({ initial, onClose }) {
     accent: initial?.accent || "#8b5cf6",
     url: initial?.url || "",
     order: initial?.order ?? 0,
+    tagline: initial?.tagline || "",
+    overview: initial?.overview || "",
+    challenge: initial?.challenge || "",
+    solution: initial?.solution || "",
+    results: initial?.results || "",
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -806,7 +811,7 @@ function ProjectForm({ initial, onClose }) {
           <input type="number" className={inputCls} value={f.order} onChange={set("order")} />
         </Field>
       </div>
-      <Field label="Case-study URL (optional)">
+      <Field label="Live site URL (optional)">
         <input className={inputCls} value={f.url} onChange={set("url")} placeholder="https://…" />
       </Field>
       <Field label="Accent colour">
@@ -814,6 +819,23 @@ function ProjectForm({ initial, onClose }) {
           <input type="color" value={f.accent} onChange={set("accent")} className="h-10 w-12 cursor-pointer rounded-lg border border-line bg-transparent" />
           <input className={inputCls} value={f.accent} onChange={set("accent")} placeholder="#8b5cf6" />
         </div>
+      </Field>
+
+      {/* Case-study detail — all optional; shown on /work/:id */}
+      <Field label="Tagline (optional)">
+        <input className={inputCls} value={f.tagline} onChange={set("tagline")} placeholder="One-line summary of the project" />
+      </Field>
+      <Field label="Overview (optional)">
+        <textarea rows={3} className={inputCls} value={f.overview} onChange={set("overview")} placeholder="Intro paragraph. Blank line = new paragraph." />
+      </Field>
+      <Field label="The challenge (optional)">
+        <textarea rows={3} className={inputCls} value={f.challenge} onChange={set("challenge")} />
+      </Field>
+      <Field label="What we did (optional)">
+        <textarea rows={3} className={inputCls} value={f.solution} onChange={set("solution")} />
+      </Field>
+      <Field label="The outcome (optional)">
+        <textarea rows={3} className={inputCls} value={f.results} onChange={set("results")} />
       </Field>
       {err && <p className="text-xs text-red-400">{err}</p>}
       <div className="flex justify-end gap-3 pt-2">

@@ -11,6 +11,13 @@ router.get("/", async (_req, res) => {
   res.json(projects);
 });
 
+// Single project — used by the case-study detail page on direct navigation.
+router.get("/:id", async (req, res) => {
+  const project = await Project.findById(req.params.id).catch(() => null);
+  if (!project) return res.status(404).json({ error: "Not found" });
+  res.json(project);
+});
+
 router.post("/", adminOnly, async (req, res) => {
   if (!req.body.name?.trim())
     return res.status(400).json({ error: "Name required" });
